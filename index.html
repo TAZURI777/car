@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="referrer" content="strict-origin-when-cross-origin">
-    <title>차량 운행일지 (저장 로직 개선)</title>
+    <title>차량 운행일지 (로직 수정)</title>
     
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚗</text></svg>">
     
@@ -111,10 +111,7 @@
         tableBody.addEventListener('click', handleTableClick);
         tableBody.addEventListener('change', handleFileChange);
         tableBody.addEventListener('input', handleCellInput);
-        addRowButton.addEventListener('click', () => {
-            addNewRow();
-            updateRowNumbers();
-        });
+        addRowButton.addEventListener('click', () => { addNewRow(); updateRowNumbers(); });
         closeModal.onclick = () => { modal.style.display = 'none'; };
         modal.onclick = (event) => { if (event.target === modal) { modal.style.display = 'none'; } };
         downloadExcelButton.addEventListener('click', downloadExcel);
@@ -156,17 +153,21 @@
             if (target.isContentEditable) {
                 const currentRow = target.closest('.log-row');
                 if (target.classList.contains('mileage')) {
-                    updateDistance(currentRow, true); // 주행거리 입력 시에만 저장 확인
+                    updateDistance(currentRow);
                 } else {
-                    saveTableData(); // 다른 셀은 바로 저장
+                    saveTableData();
                 }
             }
         }
-
+        
+        /**
+         * ✅ 사진 저장과 행 완료 로직 분리
+         */
         async function handleImage(file, type, row) {
             showLoader(true, true);
+            let compressedImageDataUrl = null;
             try {
-                const compressedImageDataUrl = await compressImage(file);
+                compressedImageDataUrl = await compressImage(file);
                 const photoCell = row.querySelector(`.photo-cell.${type}-photo-cell`);
                 photoCell.innerHTML = '';
                 const thumbnail = document.createElement('img');
@@ -192,21 +193,23 @@
                 const mileageCell = row.querySelector(`.mileage.${type}-mileage`);
                 if (mileage) {
                     mileageCell.textContent = mileage;
-                    if (confirm(`주행거리 '${mileage}'를 확인했습니다.\n이 사진을 갤러리에 저장하시겠습니까?`)) {
-                        saveImageToGallery(compressedImageDataUrl, `운행기록_${mileage}.jpg`);
-                    }
                 } else {
                     alert('계기판의 주행거리를 인식하지 못했습니다. 직접 입력해주세요.');
                     mileageCell.textContent = '';
                 }
-                updateDistance(row, true);
-                saveTableData();
+                
+                // 사진 저장 여부 확인 (행 완료와 무관)
+                if (confirm(`사진을 갤러리에 저장하시겠습니까?`)) {
+                    saveImageToGallery(compressedImageDataUrl, `운행기록_${mileage || file.name}.jpg`);
+                }
+                
+                updateDistance(row); // 주행거리 계산 시도
+                saveTableData(); // 현재 상태 저장
             } catch (error) {
                 console.error('이미지 처리 중 오류 발생:', error);
                 alert(error.message);
-                if (confirm('OCR 처리 중 오류가 발생했습니다. 현재 사진을 갤러리에 저장하시겠습니까?')) {
-                    const photoCell = row.querySelector(`.photo-cell.${type}-photo-cell`);
-                    saveImageToGallery(photoCell.dataset.imageDataUrl, `운행기록_사진.jpg`);
+                if (compressedImageDataUrl && confirm('OCR 처리 중 오류가 발생했습니다. 현재 사진을 갤러리에 저장하시겠습니까?')) {
+                    saveImageToGallery(compressedImageDataUrl, `운행기록_사진.jpg`);
                 }
             } finally {
                 showLoader(false);
@@ -254,23 +257,16 @@
         }
         
         /**
-         * ✅ 주행거리 계산 및 저장 확인 로직 수정
+         * ✅ 주행거리가 계산될 때만 행 완료(접기) 및 새 행 추가
          */
-        function updateDistance(row, showConfirm = false) {
+        function updateDistance(row) {
             const startMileage = parseFloat(row.querySelector('.start-mileage').textContent.replace(/,/g, ''));
             const endMileage = parseFloat(row.querySelector('.end-mileage').textContent.replace(/,/g, ''));
             const distanceCell = row.querySelector('.distance');
-            
-            // 주행거리 계산은 항상 시도
+
             if (!isNaN(startMileage) && !isNaN(endMileage) && endMileage >= startMileage) {
                 distanceCell.textContent = Math.round(endMileage - startMileage).toLocaleString();
-            } else {
-                distanceCell.textContent = '';
-            }
-
-            // 아직 완료되지 않은 행이고, 확인 창을 띄워야 할 때만 실행
-            if (showConfirm && row.dataset.completed === 'false') {
-                if (confirm('저장하고 완료하시겠습니까?')) {
+                if (row.dataset.completed === 'false') {
                     row.dataset.completed = 'true';
                     row.classList.add('completed');
                     row.querySelector('.toggle-btn').style.display = 'inline-block';
@@ -280,6 +276,8 @@
                     }
                     saveTableData();
                 }
+            } else {
+                distanceCell.textContent = '';
             }
         }
         
@@ -362,14 +360,11 @@
             try {
                 const rows = document.querySelectorAll('#log-body .log-row');
                 const dataToSave = Array.from(rows).map(row => {
-                    const runDateCell = row.querySelector('.run-date');
-                    const startPhotoCell = row.querySelector('.start-photo-cell');
-                    const endPhotoCell = row.querySelector('.end-photo-cell');
                     return {
                         completed: row.dataset.completed,
                         expanded: row.classList.contains('expanded'),
-                        displayDate: runDateCell.textContent,
-                        fullDate: runDateCell.dataset.fullDate,
+                        displayDate: row.querySelector('.run-date').textContent,
+                        fullDate: row.querySelector('.run-date').dataset.fullDate,
                         startLocation: row.querySelector('.start-location').textContent,
                         endLocation: row.querySelector('.end-location').textContent,
                         startTime: row.querySelector('.start-time').textContent,
@@ -378,10 +373,10 @@
                         endMileage: row.querySelector('.end-mileage').textContent,
                         distance: row.querySelector('.distance').textContent,
                         remarks: row.querySelector('[data-label="비고"]').textContent,
-                        startPhotoFile: startPhotoCell.dataset.filename,
-                        endPhotoFile: endPhotoCell.dataset.filename,
-                        startImageDataUrl: startPhotoCell.dataset.imageDataUrl,
-                        endImageDataUrl: endPhotoCell.dataset.imageDataUrl
+                        startPhotoFile: row.querySelector('.start-photo-cell').dataset.filename,
+                        endPhotoFile: row.querySelector('.end-photo-cell').dataset.filename,
+                        startImageDataUrl: row.querySelector('.start-photo-cell').dataset.imageDataUrl,
+                        endImageDataUrl: row.querySelector('.end-photo-cell').dataset.imageDataUrl
                     };
                 });
                 localStorage.setItem('drivingLogData', JSON.stringify(dataToSave));
