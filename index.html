@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>차량 운행일지 (저장 오류 수정)</title>
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <title>차량 운행일지 (최종 완성본)</title>
     
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚗</text></svg>">
     
@@ -12,11 +13,11 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
 
     <style>
-        /* 모든 CSS 스타일은 이전과 동일합니다. */
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; background-color: #f4f7f6; margin: 0; padding: 10px; }
         .container { width: 100%; max-width: 1600px; background-color: #ffffff; padding: 15px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); box-sizing: border-box; margin: 10px auto; }
         h1 { text-align: center; color: #333; margin-bottom: 20px; font-size: 24px; }
         table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px; }
+        
         @media screen and (max-width: 900px) {
             table, thead, tbody, th, td, tr { display: block; }
             thead tr { position: absolute; top: -9999px; left: -9999px; }
@@ -29,6 +30,7 @@
             .log-row.completed:not(.expanded) { padding: 0; }
             .log-row.completed:not(.expanded) > td:first-child { border-bottom: none; }
         }
+
         @media screen and (min-width: 901px) {
             table { table-layout: fixed; }
             thead { display: table-header-group; }
@@ -39,8 +41,9 @@
             .log-row.completed { cursor: default; }
             .log-row.completed .toggle-btn { display: none; }
         }
+
         td[contenteditable="true"] { background-color: #e8f4ff; }
-        .is-editing .editable-cell { contenteditable: true !important; background-color: #fffbe8; outline: 2px solid #ffc107; }
+        .is-editing .editable-cell[contenteditable="true"] { background-color: #fffbe8; outline: 2px solid #ffc107; }
         .log-row.completed .toggle-btn { display: inline-block; }
         .toggle-btn { font-size: 16px; font-weight: bold; cursor: pointer; padding: 4px 10px; margin-left: 10px; border-radius: 50%; border: 1px solid #ccc; background-color: #fff; line-height: 1; }
         .row-number span { font-weight: bold; font-size: 16px; }
@@ -104,6 +107,7 @@
         const modalImage = document.getElementById('modal-image');
         const closeModal = document.querySelector('.close-modal');
 
+        // --- 1. 이벤트 리스너 설정 ---
         tableBody.addEventListener('click', handleTableClick);
         tableBody.addEventListener('change', handleFileChange);
         tableBody.addEventListener('input', handleCellInput);
@@ -114,65 +118,8 @@
         closeModal.onclick = () => { modal.style.display = 'none'; };
         modal.onclick = (event) => { if (event.target === modal) { modal.style.display = 'none'; } };
         downloadExcelButton.addEventListener('click', downloadExcel);
-        
-        // --- ✅ 데이터 저장 및 불러오기 로직 수정 ---
-        function saveTableData() {
-            try {
-                const rows = document.querySelectorAll('#log-body .log-row');
-                const dataToSave = Array.from(rows).map(row => {
-                    const runDateCell = row.querySelector('.run-date');
-                    const startPhotoCell = row.querySelector('.start-photo-cell');
-                    const endPhotoCell = row.querySelector('.end-photo-cell');
-                    // 각 셀의 데이터를 명시적으로 가져옴
-                    return {
-                        completed: row.dataset.completed,
-                        expanded: row.classList.contains('expanded'),
-                        displayDate: runDateCell.textContent,
-                        fullDate: runDateCell.dataset.fullDate,
-                        startLocation: row.querySelector('.start-location').textContent,
-                        endLocation: row.querySelector('.end-location').textContent,
-                        startTime: row.querySelector('.start-time').textContent,
-                        endTime: row.querySelector('.end-time').textContent,
-                        startMileage: row.querySelector('.start-mileage').textContent,
-                        endMileage: row.querySelector('.end-mileage').textContent,
-                        distance: row.querySelector('.distance').textContent,
-                        remarks: row.querySelector('[data-label="비고"]').textContent,
-                        startPhotoFile: startPhotoCell.dataset.filename,
-                        endPhotoFile: endPhotoCell.dataset.filename,
-                        startImageDataUrl: startPhotoCell.dataset.imageDataUrl,
-                        endImageDataUrl: endPhotoCell.dataset.imageDataUrl
-                    };
-                });
-                localStorage.setItem('drivingLogData', JSON.stringify(dataToSave));
-                console.log("데이터가 성공적으로 저장되었습니다.", dataToSave);
-            } catch (e) {
-                console.error("데이터 저장 중 오류 발생:", e);
-                alert("데이터 저장에 실패했습니다. 저장 공간이 부족할 수 있습니다.");
-            }
-        }
 
-        function loadTableData() {
-            const savedData = localStorage.getItem('drivingLogData');
-            console.log("저장된 데이터를 불러옵니다:", savedData);
-            if (savedData) {
-                try {
-                    const dataArray = JSON.parse(savedData);
-                    if (dataArray && dataArray.length > 0) {
-                        tableBody.innerHTML = '';
-                        dataArray.forEach(rowData => addNewRow(rowData));
-                        updateRowNumbers();
-                        return;
-                    }
-                } catch (e) {
-                    console.error("저장된 데이터 파싱 오류:", e);
-                    localStorage.removeItem('drivingLogData'); // 손상된 데이터 삭제
-                }
-            }
-            addNewRow(); // 저장된 데이터가 없으면 첫 행 추가
-        }
-
-        // --- 이하 모든 다른 함수들은 이전과 동일하게 여기에 완전한 형태로 포함됩니다 ---
-        
+        // --- 2. 이벤트 핸들러 ---
         function handleTableClick(event) {
             const target = event.target;
             const row = target.closest('.log-row');
@@ -217,24 +164,19 @@
             }
         }
 
+        // --- 3. 핵심 로직 함수들 ---
         async function handleImage(file, type, row) {
             showLoader(true, true);
             try {
-                const imageDataUrl = await new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = e => resolve(e.target.result);
-                    reader.onerror = e => reject(e);
-                    reader.readAsDataURL(file);
-                });
-
+                const compressedImageDataUrl = await compressImage(file);
                 const photoCell = row.querySelector(`.photo-cell.${type}-photo-cell`);
                 photoCell.innerHTML = '';
                 const thumbnail = document.createElement('img');
-                thumbnail.src = imageDataUrl;
+                thumbnail.src = compressedImageDataUrl;
                 thumbnail.className = 'thumbnail';
                 photoCell.appendChild(thumbnail);
                 photoCell.dataset.filename = file.name;
-                photoCell.dataset.imageDataUrl = imageDataUrl;
+                photoCell.dataset.imageDataUrl = compressedImageDataUrl;
                 
                 row.querySelector(`input[data-type="${type}"]`).previousElementSibling.classList.add('btn-disabled');
 
@@ -395,6 +337,58 @@
             }
         }
 
+        function saveTableData() {
+            try {
+                const rows = document.querySelectorAll('#log-body .log-row');
+                const dataToSave = Array.from(rows).map(row => {
+                    const runDateCell = row.querySelector('.run-date');
+                    const startPhotoCell = row.querySelector('.start-photo-cell');
+                    const endPhotoCell = row.querySelector('.end-photo-cell');
+                    return {
+                        completed: row.dataset.completed,
+                        expanded: row.classList.contains('expanded'),
+                        displayDate: runDateCell.textContent,
+                        fullDate: runDateCell.dataset.fullDate,
+                        startLocation: row.querySelector('.start-location').textContent,
+                        endLocation: row.querySelector('.end-location').textContent,
+                        startTime: row.querySelector('.start-time').textContent,
+                        endTime: row.querySelector('.end-time').textContent,
+                        startMileage: row.querySelector('.start-mileage').textContent,
+                        endMileage: row.querySelector('.end-mileage').textContent,
+                        distance: row.querySelector('.distance').textContent,
+                        remarks: row.querySelector('[data-label="비고"]').textContent,
+                        startPhotoFile: startPhotoCell.dataset.filename,
+                        endPhotoFile: endPhotoCell.dataset.filename,
+                        startImageDataUrl: startPhotoCell.dataset.imageDataUrl,
+                        endImageDataUrl: endPhotoCell.dataset.imageDataUrl
+                    };
+                });
+                localStorage.setItem('drivingLogData', JSON.stringify(dataToSave));
+            } catch (e) {
+                console.error("데이터 저장 중 오류 발생:", e);
+                alert("데이터 저장에 실패했습니다. 저장 공간이 부족할 수 있습니다.");
+            }
+        }
+
+        function loadTableData() {
+            const savedData = localStorage.getItem('drivingLogData');
+            if (savedData) {
+                try {
+                    const dataArray = JSON.parse(savedData);
+                    if (dataArray && dataArray.length > 0) {
+                        tableBody.innerHTML = '';
+                        dataArray.forEach(rowData => { addNewRow(rowData); });
+                        updateRowNumbers();
+                        return;
+                    }
+                } catch (e) {
+                    console.error("저장된 데이터 파싱 오류:", e);
+                    localStorage.removeItem('drivingLogData');
+                }
+            }
+            addNewRow();
+        }
+
         function downloadExcel() {
             const table = document.getElementById('log-table').cloneNode(true);
             const headerCells = Array.from(table.tHead.rows[0].cells);
@@ -435,6 +429,36 @@
             });
         }
         
+        function compressImage(file, maxWidth = 1024, quality = 0.8) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        let { width, height } = img;
+
+                        if (width > maxWidth) {
+                            height = (maxWidth / width) * height;
+                            width = maxWidth;
+                        }
+
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                        resolve(dataUrl);
+                    };
+                    img.onerror = reject;
+                    img.src = e.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
         function preprocessImage(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
