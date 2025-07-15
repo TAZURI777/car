@@ -107,10 +107,10 @@
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
+        // ✅ 전국 LG전자 센터 좌표 데이터
         const serviceCenters = [
-            { "name": "강남서비스센터", "lat": 37.4947, "lon": 127.0305 },
-            { "name": "오산서비스센터", "lat": 37.1513, "lon": 127.0722, "radius": 3000 },
-            { "name": "서초서비스센터", "lat": 37.4836, "lon": 127.0174 }
+            { name: "강남센터", lat: 37.4947, lon: 127.0305 },{ name: "강동센터", lat: 37.5485, lon: 127.1471 },{ name: "강북센터", lat: 37.6328, lon: 127.0253 },{ name: "강서센터", lat: 37.5601, lon: 126.8488 },{ name: "관악센터", lat: 37.4789, lon: 126.9503 },{ name: "광진센터", lat: 37.5385, lon: 127.0827 },{ name: "구로센터", lat: 37.4954, lon: 126.8872 },{ name: "금천센터", lat: 37.4526, lon: 126.9038 },{ name: "노원센터", lat: 37.6548, lon: 127.0594 },{ name: "동대문센터", lat: 37.5742, lon: 127.0396 },{ name: "동작센터", lat: 37.5080, lon: 126.9427 },{ name: "마포센터", lat: 37.5634, lon: 126.9084 },{ name: "서대문센터", lat: 37.5794, lon: 126.9366 },{ name: "서초센터", lat: 37.4836, lon: 127.0174 },{ name: "성동센터", lat: 37.5634, lon: 127.0252 },{ name: "성북센터", lat: 37.5891, lon: 127.0182 },{ name: "송파센터", lat: 37.5144, lon: 127.1058 },{ name: "양천센터", lat: 37.5173, lon: 126.8664 },{ name: "영등포센터", lat: 37.5262, lon: 126.8966 },{ name: "용산센터", lat: 37.5323, lon: 126.9644 },{ name: "은평센터", lat: 37.6027, lon: 126.9189 },{ name: "중랑센터", lat: 37.6062, lon: 127.0940 },
+            { name: "경기광주센터", lat: 37.4087, lon: 127.2519 },{ name: "광명센터", lat: 37.4789, lon: 126.8647 },{ name: "구리센터", lat: 37.5991, lon: 127.1430 },{ name: "군포센터", lat: 37.3618, lon: 126.9351 },{ name: "김포센터", lat: 37.6152, lon: 126.7157 },{ name: "남양주센터", lat: 37.6341, lon: 127.2158 },{ name: "부천센터", lat: 37.4839, lon: 126.7831 },{ name: "분당센터", lat: 37.3862, lon: 127.1215 },{ name: "수원센터", lat: 37.2636, lon: 127.0286 },{ name: "시흥센터", lat: 37.3800, lon: 126.8028 },{ name: "안산센터", lat: 37.3216, lon: 126.8309 },{ name: "안성센터", lat: 37.0084, lon: 127.2721 },{ name: "안양센터", lat: 37.3911, lon: 126.9515 },{ name: "오산센터", lat: 37.1513, lon: 127.0722, radius: 3000 },{ name: "용인센터", lat: 37.2411, lon: 127.1776 },{ name: "의정부센터", lat: 37.7379, lon: 127.0471 },{ name: "이천센터", lat: 37.2773, lon: 127.4449 },{ name: "일산센터", lat: 37.6831, lon: 126.7758 },{ name: "파주센터", lat: 37.7601, lon: 126.7797 },{ name: "평택센터", lat: 36.9912, lon: 127.1121 },{ name: "포천센터", lat: 37.8941, lon: 127.2003 },{ name: "하남센터", lat: 37.5367, lon: 127.2081 },{ name: "화성센터", lat: 37.1994, lon: 126.8314 }
         ];
 
         const tableBody = document.getElementById('log-body');
@@ -125,10 +125,7 @@
         tableBody.addEventListener('click', handleTableClick);
         tableBody.addEventListener('change', handleFileChange);
         tableBody.addEventListener('input', handleCellInput);
-        addRowButton.addEventListener('click', () => {
-            addNewRow();
-            updateRowNumbers();
-        });
+        addRowButton.addEventListener('click', () => { addNewRow(); updateRowNumbers(); });
         closeModal.onclick = () => { modal.style.display = 'none'; };
         modal.addEventListener('click', (event) => { if (event.target === modal) { modal.style.display = 'none'; } });
         saveToGalleryBtn.addEventListener('click', () => {
@@ -145,7 +142,6 @@
             const target = event.target;
             const row = target.closest('.log-row');
             if (!row) return;
-
             if (target.classList.contains('custom-file-upload') && !target.classList.contains('btn-disabled')) {
                 target.nextElementSibling.click();
             } else if (target.classList.contains('thumbnail')) {
@@ -187,9 +183,8 @@
 
         async function handleImage(file, type, row) {
             showLoader(true, true);
-            let compressedImageDataUrl = null;
             try {
-                compressedImageDataUrl = await compressImage(file);
+                const compressedImageDataUrl = await compressImage(file);
                 const photoCell = row.querySelector(`.photo-cell.${type}-photo-cell`);
                 photoCell.innerHTML = '';
                 const thumbnail = document.createElement('img');
@@ -215,9 +210,6 @@
                 const mileageCell = row.querySelector(`.mileage.${type}-mileage`);
                 if (mileage) {
                     mileageCell.textContent = mileage;
-                    if (confirm(`주행거리 '${mileage}'를 확인했습니다.\n이 사진을 갤러리에 저장하시겠습니까?`)) {
-                        saveImageToGallery(compressedImageDataUrl, `운행기록_${mileage}.jpg`);
-                    }
                 } else {
                     alert('계기판의 주행거리를 인식하지 못했습니다. 직접 입력해주세요.');
                     mileageCell.textContent = '';
@@ -226,15 +218,12 @@
             } catch (error) {
                 console.error('이미지 처리 중 오류 발생:', error);
                 alert(error.message);
-                if (compressedImageDataUrl && confirm('OCR 처리 중 오류가 발생했습니다. 현재 사진을 갤러리에 저장하시겠습니까?')) {
-                    saveImageToGallery(compressedImageDataUrl, `운행기록_사진.jpg`);
-                }
             } finally {
                 showLoader(false);
                 saveTableData();
             }
         }
-
+        
         async function updateTableFromExif(exifData, type, row) {
             let dateToUse;
             if (exifData && exifData.dateTime) {
@@ -249,8 +238,8 @@
             const displayDate = `${month}/${day}`, fullDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
             const formattedTime = `${String(dateToUse.getHours()).padStart(2, '0')}:${String(dateToUse.getMinutes()).padStart(2, '0')}`;
             
-            const runDateCell = row.querySelector('.run-date');
             if (type === 'start') {
+                const runDateCell = row.querySelector('.run-date');
                 runDateCell.textContent = displayDate;
                 runDateCell.dataset.fullDate = fullDate;
                 row.querySelector('.start-time').textContent = formattedTime;
@@ -541,13 +530,11 @@
         }
 
         async function getAddressFromCoordinates(lat, lon) {
-            console.log(`현재 위치 좌표: 위도 ${lat}, 경도 ${lon}`);
             for (const center of serviceCenters) {
-                const searchRadius = center.radius || 50;
+                const searchRadius = center.radius || 500; // ✅ 기본 반경 500m로 수정
                 const distance = calculateDistance(lat, lon, center.lat, center.lon);
-                console.log(`'${center.name}'까지의 계산된 거리: ${Math.round(distance)}m, 설정 반경: ${searchRadius}m`);
                 if (distance <= searchRadius) {
-                    return center.name;
+                    return center.name.replace('', ''); // ✅ '' 글자 제거
                 }
             }
 
