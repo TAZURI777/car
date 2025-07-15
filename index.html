@@ -109,9 +109,8 @@
     document.addEventListener('DOMContentLoaded', () => {
         const serviceCenters = [
             { "name": "강남서비스센터", "lat": 37.4947, "lon": 127.0305 },
-            { "name": "오산서비스센터", "lat": 37.1513, "lon": 127.0722, "radius": 2000 },
-            { "name": "서초서비스센터", "lat": 37.4836, "lon": 127.0174 },
-            // 전국 모든 센터 데이터를 여기에 추가해야 합니다.
+            { "name": "오산서비스센터", "lat": 37.1513, "lon": 127.0722, "radius": 3000 },
+            { "name": "서초서비스센터", "lat": 37.4836, "lon": 127.0174 }
         ];
 
         const tableBody = document.getElementById('log-body');
@@ -216,6 +215,9 @@
                 const mileageCell = row.querySelector(`.mileage.${type}-mileage`);
                 if (mileage) {
                     mileageCell.textContent = mileage;
+                    if (confirm(`주행거리 '${mileage}'를 확인했습니다.\n이 사진을 갤러리에 저장하시겠습니까?`)) {
+                        saveImageToGallery(compressedImageDataUrl, `운행기록_${mileage}.jpg`);
+                    }
                 } else {
                     alert('계기판의 주행거리를 인식하지 못했습니다. 직접 입력해주세요.');
                     mileageCell.textContent = '';
@@ -224,12 +226,15 @@
             } catch (error) {
                 console.error('이미지 처리 중 오류 발생:', error);
                 alert(error.message);
+                if (compressedImageDataUrl && confirm('OCR 처리 중 오류가 발생했습니다. 현재 사진을 갤러리에 저장하시겠습니까?')) {
+                    saveImageToGallery(compressedImageDataUrl, `운행기록_사진.jpg`);
+                }
             } finally {
                 showLoader(false);
                 saveTableData();
             }
         }
-        
+
         async function updateTableFromExif(exifData, type, row) {
             let dateToUse;
             if (exifData && exifData.dateTime) {
@@ -341,12 +346,10 @@
             row.classList.toggle('is-editing', isEditing);
             button.textContent = isEditing ? '완료' : '수정';
             button.classList.toggle('editing', isEditing);
-
             const cellsToEdit = row.querySelectorAll('.editable-cell');
             cellsToEdit.forEach(cell => {
                 cell.contentEditable = isEditing;
             });
-            
             if (!isEditing) {
                 const runDateCell = row.querySelector('.run-date');
                 const dateParts = runDateCell.textContent.split('/');
@@ -364,11 +367,14 @@
             try {
                 const rows = document.querySelectorAll('#log-body .log-row');
                 const dataToSave = Array.from(rows).map(row => {
+                    const runDateCell = row.querySelector('.run-date');
+                    const startPhotoCell = row.querySelector('.start-photo-cell');
+                    const endPhotoCell = row.querySelector('.end-photo-cell');
                     return {
                         completed: row.dataset.completed,
                         expanded: row.classList.contains('expanded'),
-                        displayDate: row.querySelector('.run-date').textContent,
-                        fullDate: row.querySelector('.run-date').dataset.fullDate,
+                        displayDate: runDateCell.textContent,
+                        fullDate: runDateCell.dataset.fullDate,
                         startLocation: row.querySelector('.start-location').textContent,
                         endLocation: row.querySelector('.end-location').textContent,
                         startTime: row.querySelector('.start-time').textContent,
@@ -377,10 +383,10 @@
                         endMileage: row.querySelector('.end-mileage').textContent,
                         distance: row.querySelector('.distance').textContent,
                         remarks: row.querySelector('[data-label="비고"]').textContent,
-                        startPhotoFile: row.querySelector('.start-photo-cell').dataset.filename,
-                        endPhotoFile: row.querySelector('.end-photo-cell').dataset.filename,
-                        startImageDataUrl: row.querySelector('.start-photo-cell').dataset.imageDataUrl,
-                        endImageDataUrl: row.querySelector('.end-photo-cell').dataset.imageDataUrl
+                        startPhotoFile: startPhotoCell.dataset.filename,
+                        endPhotoFile: endPhotoCell.dataset.filename,
+                        startImageDataUrl: startPhotoCell.dataset.imageDataUrl,
+                        endImageDataUrl: endPhotoCell.dataset.imageDataUrl
                     };
                 });
                 localStorage.setItem('drivingLogData', JSON.stringify(dataToSave));
@@ -535,11 +541,12 @@
         }
 
         async function getAddressFromCoordinates(lat, lon) {
+            console.log(`현재 위치 좌표: 위도 ${lat}, 경도 ${lon}`);
             for (const center of serviceCenters) {
                 const searchRadius = center.radius || 50;
                 const distance = calculateDistance(lat, lon, center.lat, center.lon);
+                console.log(`'${center.name}'까지의 계산된 거리: ${Math.round(distance)}m, 설정 반경: ${searchRadius}m`);
                 if (distance <= searchRadius) {
-                    console.log(`반경 ${searchRadius}m 내에서 ${center.name}을 찾았습니다.`);
                     return center.name;
                 }
             }
