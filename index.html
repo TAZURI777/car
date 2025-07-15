@@ -120,7 +120,7 @@
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
-        // ✅ 전국 LG전자 센터 좌표 데이터
+        // 전국 LG전자 센터 좌표 데이터
         const serviceCenters = [
             { name: "강남센터", lat: 37.4947, lon: 127.0305 },{ name: "강동센터", lat: 37.5485, lon: 127.1471 },{ name: "강북센터", lat: 37.6328, lon: 127.0253 },{ name: "강서센터", lat: 37.5601, lon: 126.8488 },{ name: "관악센터", lat: 37.4789, lon: 126.9503 },{ name: "광진센터", lat: 37.5385, lon: 127.0827 },{ name: "구로센터", lat: 37.4954, lon: 126.8872 },{ name: "금천센터", lat: 37.4526, lon: 126.9038 },{ name: "노원센터", lat: 37.6548, lon: 127.0594 },{ name: "동대문센터", lat: 37.5742, lon: 127.0396 },{ name: "동작센터", lat: 37.5080, lon: 126.9427 },{ name: "마포센터", lat: 37.5634, lon: 126.9084 },{ name: "서대문센터", lat: 37.5794, lon: 126.9366 },{ name: "서초센터", lat: 37.4836, lon: 127.0174 },{ name: "성동센터", lat: 37.5634, lon: 127.0252 },{ name: "성북센터", lat: 37.5891, lon: 127.0182 },{ name: "송파센터", lat: 37.5144, lon: 127.1058 },{ name: "양천센터", lat: 37.5173, lon: 126.8664 },{ name: "영등포센터", lat: 37.5262, lon: 126.8966 },{ name: "용산센터", lat: 37.5323, lon: 126.9644 },{ name: "은평센터", lat: 37.6027, lon: 126.9189 },{ name: "중랑센터", lat: 37.6062, lon: 127.0940 },
             { name: "경기광주센터", lat: 37.4087, lon: 127.2519 },{ name: "광명센터", lat: 37.4789, lon: 126.8647 },{ name: "구리센터", lat: 37.5991, lon: 127.1430 },{ name: "군포센터", lat: 37.3618, lon: 126.9351 },{ name: "김포센터", lat: 37.6152, lon: 126.7157 },{ name: "남양주센터", lat: 37.6341, lon: 127.2158 },{ name: "부천센터", lat: 37.4839, lon: 126.7831 },{ name: "분당센터", lat: 37.3862, lon: 127.1215 },{ name: "수원센터", lat: 37.2636, lon: 127.0286 },{ name: "시흥센터", lat: 37.3800, lon: 126.8028 },{ name: "안산센터", lat: 37.3216, lon: 126.8309 },{ name: "안성센터", lat: 37.0084, lon: 127.2721 },{ name: "안양센터", lat: 37.3911, lon: 126.9515 },{ name: "오산센터", lat: 37.1513, lon: 127.0722, radius: 500 },{ name: "용인센터", lat: 37.2411, lon: 127.1776 },{ name: "의정부센터", lat: 37.7379, lon: 127.0471 },{ name: "이천센터", lat: 37.2773, lon: 127.4449 },{ name: "일산센터", lat: 37.6831, lon: 126.7758 },{ name: "파주센터", lat: 37.7601, lon: 126.7797 },{ name: "평택센터", lat: 36.9912, lon: 127.1121 },{ name: "포천센터", lat: 37.8941, lon: 127.2003 },{ name: "하남센터", lat: 37.5367, lon: 127.2081 },{ name: "화성센터", lat: 37.1994, lon: 126.8314 }
@@ -135,13 +135,8 @@
         const closeModal = document.querySelector('.close-modal');
         const saveToGalleryBtn = document.getElementById('save-to-gallery-btn');
 
-        // Cropper.js 관련 전역 변수
         let cropper = null;
-        let currentCropInfo = {
-            row: null,
-            type: null,
-            file: null
-        };
+        let currentCropInfo = { row: null, type: null, file: null };
 
         tableBody.addEventListener('click', handleTableClick);
         tableBody.addEventListener('change', handleFileChange);
@@ -159,7 +154,6 @@
         });
         downloadExcelButton.addEventListener('click', downloadExcel);
 
-        // '선택 완료' 버튼 클릭 이벤트 리스너 추가
         document.getElementById('crop-btn').addEventListener('click', () => {
             if (cropper) {
                 const croppedCanvas = cropper.getCroppedCanvas({
@@ -199,7 +193,6 @@
             }
         }
 
-        // START: ANDROID CROP FIX - 기존 handleFileChange 함수를 교체합니다.
         function handleFileChange(event) {
             const target = event.target;
             if (target.classList.contains('photo-input')) {
@@ -210,19 +203,16 @@
                 currentCropInfo.type = target.dataset.type;
                 currentCropInfo.file = file;
                 
-                // FileReader를 사용하여 이미지 데이터를 읽습니다.
                 const reader = new FileReader();
                 reader.onload = (e) => {
                     const image = new Image();
                     image.onload = () => {
-                        // EXIF.js를 사용하여 사진의 방향 정보를 읽어옵니다.
                         EXIF.getData(file, function() {
                             const orientation = EXIF.getTag(this, 'Orientation');
                             const canvas = document.createElement('canvas');
                             const ctx = canvas.getContext('2d');
                             let { width, height } = image;
 
-                            // 방향 정보에 따라 캔버스의 너비와 높이를 설정합니다. (90도, 270도 회전 시 너비/높이 교환)
                             if (orientation && orientation >= 5 && orientation <= 8) {
                                 canvas.width = height;
                                 canvas.height = width;
@@ -231,7 +221,6 @@
                                 canvas.height = height;
                             }
 
-                            // 캔버스에 이미지를 그리기 전에 방향에 맞게 회전 및 변환을 적용합니다.
                             switch (orientation) {
                                 case 2: ctx.transform(-1, 0, 0, 1, width, 0); break;
                                 case 3: ctx.transform(-1, 0, 0, -1, width, height); break;
@@ -243,30 +232,27 @@
                                 default: break;
                             }
 
-                            // 변환된 캔버스에 이미지를 그립니다.
                             ctx.drawImage(image, 0, 0);
-                            const dataUrl = canvas.toDataURL(); // 올바른 방향의 이미지 데이터 URL을 얻습니다.
+                            const dataUrl = canvas.toDataURL();
 
-                            // Cropper에 필요한 DOM 요소들을 가져옵니다.
                             const cropModal = document.getElementById('crop-modal');
                             const imageToCrop = document.getElementById('image-to-crop');
                             
-                            imageToCrop.src = dataUrl; // 바로잡힌 이미지를 크롭할 이미지로 설정합니다.
+                            imageToCrop.src = dataUrl;
                             cropModal.style.display = 'block';
 
                             if (cropper) {
                                 cropper.destroy();
                             }
 
-                            // Cropper.js를 초기화합니다.
                             cropper = new Cropper(imageToCrop, {
                                 viewMode: 1,
                                 dragMode: 'move',
                                 background: false,
                                 autoCropArea: 0.8,
-                                checkOrientation: false, // EXIF 방향을 수동으로 처리했으므로 자동 확인 기능은 끕니다.
-                                responsive: true, // 반응형으로 동작하도록 설정
-                                toggleDragModeOnDblclick: false, // 더블클릭으로 드래그 모드 변경 방지 (모바일 터치 오류 감소)
+                                checkOrientation: false,
+                                responsive: true,
+                                toggleDragModeOnDblclick: false,
                             });
                         });
                     };
@@ -275,7 +261,6 @@
                 reader.readAsDataURL(file);
             }
         }
-        // END: ANDROID CROP FIX
 
         function handleCellInput(event) {
             const target = event.target;
@@ -292,11 +277,9 @@
         async function processImage(croppedFile, type, row) {
             showLoader(true, true);
             try {
-                // EXIF 정보는 원본 파일에서 추출
                 const exifData = await getExifData(currentCropInfo.file);
                 await updateTableFromExif(exifData, type, row);
 
-                // 썸네일과 OCR은 잘린 파일로 처리
                 const compressedImageDataUrl = await compressImage(croppedFile);
                 const photoCell = row.querySelector(`.photo-cell.${type}-photo-cell`);
                 photoCell.innerHTML = '';
@@ -574,18 +557,67 @@
         }
         
         async function recognizeMileage(imageSource) {
+            // 1. 이미지 전처리 단계 (흑백 변환)
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+            const image = await new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = reject;
+                if (typeof imageSource !== 'string') {
+                    img.src = URL.createObjectURL(imageSource);
+                } else {
+                    img.src = imageSource;
+                }
+            });
+
+            canvas.width = image.width;
+            canvas.height = image.height;
+            ctx.drawImage(image, 0, 0);
+
+            if (typeof imageSource !== 'string') {
+                URL.revokeObjectURL(image.src);
+            }
+
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i], g = data[i + 1], b = data[i + 2];
+                const saturation = Math.max(r, g, b) - Math.min(r, g, b);
+
+                if (saturation > 50) {
+                    data[i] = data[i+1] = data[i+2] = 255;
+                } else {
+                    const brightness = (r + g + b) / 3;
+                    const threshold = 128;
+                    const value = brightness < threshold ? 0 : 255;
+                    data[i] = data[i+1] = data[i+2] = value;
+                }
+            }
+            ctx.putImageData(imageData, 0, 0);
+
+            // 2. Tesseract OCR 인식 및 결과 파싱
             const worker = await Tesseract.createWorker('kor+eng');
             try {
-                await worker.setParameters({
-                    tessedit_char_whitelist: '0123456789',
-                });
-                const { data: { text } } = await worker.recognize(imageSource);
-                const mileage = text.replace(/\D/g, ''); 
-                if (mileage && mileage.length >= 5) {
-                    return mileage;
+                const { data: { text } } = await worker.recognize(canvas);
+                console.log("OCR 원본 결과:", text);
+
+                const numbers = text.match(/\d{3,}/g);
+
+                if (!numbers) {
+                    console.log("3자리 이상의 숫자를 찾지 못했습니다.");
+                    return null;
                 }
-                console.log("OCR 결과:", text);
-                return null;
+                
+                numbers.sort((a, b) => parseInt(b, 10) - parseInt(a, 10));
+                
+                const mileage = numbers[0];
+                console.log("추출된 주행거리:", mileage);
+                
+                return mileage;
+
             } catch (error) { 
                 console.error("OCR 처리 중 오류:", error); 
                 return null; 
@@ -601,7 +633,7 @@
         }
 
         function calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371e3; // metres
+            const R = 6371e3;
             const φ1 = lat1 * Math.PI/180, φ2 = lat2 * Math.PI/180;
             const Δφ = (lat2-lat1) * Math.PI/180, Δλ = (lon2-lon1) * Math.PI/180;
             const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) * Math.sin(Δλ/2);
@@ -611,14 +643,13 @@
 
         async function getAddressFromCoordinates(lat, lon) {
             for (const center of serviceCenters) {
-                const searchRadius = center.radius || 500; // default 500m
+                const searchRadius = center.radius || 500;
                 const distance = calculateDistance(lat, lon, center.lat, center.lon);
                 if (distance <= searchRadius) {
                     return center.name;
                 }
             }
-            // Google Geocoding API as a fallback
-            const GOOGLE_API_KEY = 'AIzaSyDmq6ArU2ueu7jrOjlBEFJBlF3C_CfrzWI'; // Replace with your actual key if needed
+            const GOOGLE_API_KEY = 'AIzaSyDmq6ArU2ueu7jrOjlBEFJBlF3C_CfrzWI';
             if (GOOGLE_API_KEY.includes('발급받은')) return "API 키 필요";
             const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lon}&key=${GOOGLE_API_KEY}&language=ko`;
             try {
