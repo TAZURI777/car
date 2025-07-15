@@ -120,7 +120,7 @@
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
-        // 전국 LG전자 센터 좌표 데이터
+        // ... (serviceCenters 데이터는 이전과 동일하여 생략)
         const serviceCenters = [
             { name: "강남센터", lat: 37.4947, lon: 127.0305 },{ name: "강동센터", lat: 37.5485, lon: 127.1471 },{ name: "강북센터", lat: 37.6328, lon: 127.0253 },{ name: "강서센터", lat: 37.5601, lon: 126.8488 },{ name: "관악센터", lat: 37.4789, lon: 126.9503 },{ name: "광진센터", lat: 37.5385, lon: 127.0827 },{ name: "구로센터", lat: 37.4954, lon: 126.8872 },{ name: "금천센터", lat: 37.4526, lon: 126.9038 },{ name: "노원센터", lat: 37.6548, lon: 127.0594 },{ name: "동대문센터", lat: 37.5742, lon: 127.0396 },{ name: "동작센터", lat: 37.5080, lon: 126.9427 },{ name: "마포센터", lat: 37.5634, lon: 126.9084 },{ name: "서대문센터", lat: 37.5794, lon: 126.9366 },{ name: "서초센터", lat: 37.4836, lon: 127.0174 },{ name: "성동센터", lat: 37.5634, lon: 127.0252 },{ name: "성북센터", lat: 37.5891, lon: 127.0182 },{ name: "송파센터", lat: 37.5144, lon: 127.1058 },{ name: "양천센터", lat: 37.5173, lon: 126.8664 },{ name: "영등포센터", lat: 37.5262, lon: 126.8966 },{ name: "용산센터", lat: 37.5323, lon: 126.9644 },{ name: "은평센터", lat: 37.6027, lon: 126.9189 },{ name: "중랑센터", lat: 37.6062, lon: 127.0940 },
             { name: "경기광주센터", lat: 37.4087, lon: 127.2519 },{ name: "광명센터", lat: 37.4789, lon: 126.8647 },{ name: "구리센터", lat: 37.5991, lon: 127.1430 },{ name: "군포센터", lat: 37.3618, lon: 126.9351 },{ name: "김포센터", lat: 37.6152, lon: 126.7157 },{ name: "남양주센터", lat: 37.6341, lon: 127.2158 },{ name: "부천센터", lat: 37.4839, lon: 126.7831 },{ name: "분당센터", lat: 37.3862, lon: 127.1215 },{ name: "수원센터", lat: 37.2636, lon: 127.0286 },{ name: "시흥센터", lat: 37.3800, lon: 126.8028 },{ name: "안산센터", lat: 37.3216, lon: 126.8309 },{ name: "안성센터", lat: 37.0084, lon: 127.2721 },{ name: "안양센터", lat: 37.3911, lon: 126.9515 },{ name: "오산센터", lat: 37.1513, lon: 127.0722, radius: 500 },{ name: "용인센터", lat: 37.2411, lon: 127.1776 },{ name: "의정부센터", lat: 37.7379, lon: 127.0471 },{ name: "이천센터", lat: 37.2773, lon: 127.4449 },{ name: "일산센터", lat: 37.6831, lon: 126.7758 },{ name: "파주센터", lat: 37.7601, lon: 126.7797 },{ name: "평택센터", lat: 36.9912, lon: 127.1121 },{ name: "포천센터", lat: 37.8941, lon: 127.2003 },{ name: "하남센터", lat: 37.5367, lon: 127.2081 },{ name: "화성센터", lat: 37.1994, lon: 126.8314 }
@@ -140,7 +140,21 @@
 
         tableBody.addEventListener('click', handleTableClick);
         tableBody.addEventListener('change', handleFileChange);
+        
+        // START: 검증 시점 변경
+        // 기존 'input' 이벤트 리스너를 수정하고, 'focusout' 리스너를 추가합니다.
         tableBody.addEventListener('input', handleCellInput);
+        
+        // 주행거리(km) 셀에서 포커스가 벗어났을 때 유효성 검사를 실행합니다.
+        tableBody.addEventListener('focusout', (event) => {
+            const target = event.target;
+            if (target.classList.contains('mileage')) {
+                const row = target.closest('.log-row');
+                updateDistance(row); // 포커스가 나갈 때만 유효성 검사 및 계산 실행
+            }
+        });
+        // END: 검증 시점 변경
+
         addRowButton.addEventListener('click', () => { addNewRow(); updateRowNumbers(); });
         closeModal.onclick = () => { modal.style.display = 'none'; };
         modal.addEventListener('click', (event) => { if (event.target === modal) { modal.style.display = 'none'; } });
@@ -262,12 +276,23 @@
             }
         }
 
+        // 주행거리 외 다른 셀들은 입력 즉시 저장되도록 기존 로직 유지
         function handleCellInput(event) {
             const target = event.target;
             if (target.isContentEditable) {
-                const currentRow = target.closest('.log-row');
+                // 주행거리 셀 입력 시에는 아무것도 하지 않음 (focusout에서 처리)
                 if (target.classList.contains('mileage')) {
-                    updateDistance(currentRow);
+                    // 그냥 두면 주행거리 칸이 실시간으로 계산됨 (팝업은 안 뜸)
+                    // 이 부분도 비워둘 수 있으나, 사용자가 거리를 확인하며 입력하는 편의를 위해 남겨둠
+                    const currentRow = target.closest('.log-row');
+                    const distanceCell = currentRow.querySelector('.distance');
+                    const startMileage = parseFloat(currentRow.querySelector('.start-mileage').textContent.replace(/,/g, ''));
+                    const endMileage = parseFloat(currentRow.querySelector('.end-mileage').textContent.replace(/,/g, ''));
+                    if (!isNaN(startMileage) && !isNaN(endMileage) && endMileage >= startMileage) {
+                        distanceCell.textContent = Math.round(endMileage - startMileage).toLocaleString();
+                    } else {
+                        distanceCell.textContent = '';
+                    }
                 } else {
                     saveTableData();
                 }
@@ -284,7 +309,7 @@
                 const photoCell = row.querySelector(`.photo-cell.${type}-photo-cell`);
                 photoCell.innerHTML = '';
                 const thumbnail = document.createElement('img');
-thumbnail.src = compressedImageDataUrl;
+                thumbnail.src = compressedImageDataUrl;
                 thumbnail.className = 'thumbnail';
                 photoCell.appendChild(thumbnail);
                 photoCell.dataset.filename = currentCropInfo.file.name;
@@ -303,6 +328,7 @@ thumbnail.src = compressedImageDataUrl;
                     alert('주행거리를 인식하지 못했습니다. 직접 입력해주세요.');
                     mileageCell.textContent = '';
                 }
+                // OCR 인식 후에는 바로 유효성 검사 실행
                 updateDistance(row);
             } catch (error) {
                 console.error('이미지 처리 중 오류 발생:', error);
@@ -313,6 +339,113 @@ thumbnail.src = compressedImageDataUrl;
             }
         }
 
+        async function updateTableFromExif(exifData, type, row) {
+            // ... (이전과 동일하여 생략)
+        }
+        
+        // 주행거리 유효성 검사 및 계산 함수 (호출 시점 변경됨)
+        function updateDistance(row) {
+            const startMileageCell = row.querySelector('.start-mileage');
+            const endMileageCell = row.querySelector('.end-mileage');
+            const distanceCell = row.querySelector('.distance');
+
+            const startMileage = parseFloat(startMileageCell.textContent.replace(/,/g, ''));
+            const endMileage = parseFloat(endMileageCell.textContent.replace(/,/g, ''));
+
+            startMileageCell.style.backgroundColor = '';
+            endMileageCell.style.backgroundColor = '';
+            
+            if (!isNaN(startMileage) && !isNaN(endMileage)) {
+                if (endMileage < startMileage) {
+                    // focusout 시점에 팝업 발생
+                    alert('도착(km)의 주행거리는 출발(km)보다 크거나 같아야 합니다.');
+                    distanceCell.textContent = '';
+                    startMileageCell.style.backgroundColor = '#ffdddd';
+                    endMileageCell.style.backgroundColor = '#ffdddd';
+                    return;
+                }
+
+                distanceCell.textContent = Math.round(endMileage - startMileage).toLocaleString();
+                if (row.dataset.completed === 'false') {
+                    const rowNum = row.querySelector('.row-number span').textContent;
+                    if (confirm(`No.${rowNum} 운행을 완료하고 저장하시겠습니까?`)) {
+                        row.dataset.completed = 'true';
+                        row.classList.add('completed');
+                        row.querySelector('.toggle-btn').style.display = 'inline-block';
+                        if (row === tableBody.lastElementChild) {
+                            addNewRow();
+                            updateRowNumbers();
+                        }
+                        saveTableData();
+                    }
+                }
+            } else {
+                distanceCell.textContent = '';
+            }
+        }
+        
+        function addNewRow(rowData = {}) {
+            // ... (이전과 동일하여 생략)
+        }
+
+        function deleteRow(row) {
+            // ... (이전과 동일하여 생-략)
+        }
+        
+        function updateRowNumbers() {
+            // ... (이전과 동일하여 생략)
+        }
+        
+        function toggleRowEditMode(row, button) {
+            // ... (이전과 동일하여 생략)
+        }
+        
+        function saveTableData() {
+            // ... (이전과 동일하여 생략)
+        }
+
+        function loadTableData() {
+            // ... (이전과 동일하여 생략)
+        }
+
+        function downloadExcel() {
+            // ... (이전과 동일하여 생략)
+        }
+        
+        function getExifData(file) {
+            // ... (이전과 동일하여 생략)
+        }
+        
+        function compressImage(file, maxWidth = 1024, quality = 0.8) {
+            // ... (이전과 동일하여 생략)
+        }
+        
+        async function recognizeMileage(imageSource) {
+            // ... (이전과 동일하여 생략)
+        }
+        
+        function convertDMSToDD(dms, ref) {
+            // ... (이전과 동일하여 생략)
+        }
+
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            // ... (이전과 동일하여 생략)
+        }
+
+        async function getAddressFromCoordinates(lat, lon) {
+            // ... (이전과 동일하여 생략)
+        }
+        
+        function showLoader(show, showProgress = false) {
+            // ... (이전과 동일하여 생략)
+        }
+        
+        // --- 생략된 함수들의 전체 코드는 이전 답변과 동일합니다. ---
+        // --- 여기서는 전체 구조를 보여드리기 위해 함수 선언만 남겨두었습니다. ---
+        // --- 실제 적용 시에는 이전 답변의 전체 코드를 사용하시면 됩니다. ---
+
+        // (이 아래부터는 이전 코드와 동일합니다. 편의상 전체를 다시 붙여넣습니다.)
+        
         async function updateTableFromExif(exifData, type, row) {
             let dateToUse;
             if (exifData && exifData.dateTime) {
@@ -339,52 +472,6 @@ thumbnail.src = compressedImageDataUrl;
                 row.querySelector(`.${type}-location`).textContent = address;
             } else {
                 row.querySelector(`.${type}-location`).textContent = '위치 정보 없음';
-            }
-        }
-        
-        // 주행거리 유효성 검사 로직 추가
-        function updateDistance(row) {
-            const startMileageCell = row.querySelector('.start-mileage');
-            const endMileageCell = row.querySelector('.end-mileage');
-            const distanceCell = row.querySelector('.distance');
-
-            const startMileage = parseFloat(startMileageCell.textContent.replace(/,/g, ''));
-            const endMileage = parseFloat(endMileageCell.textContent.replace(/,/g, ''));
-
-            // 입력할 때마다 일단 배경색 초기화
-            startMileageCell.style.backgroundColor = '';
-            endMileageCell.style.backgroundColor = '';
-            
-            // 두 값 모두 유효한 숫자인 경우에만 계산 및 검사 진행
-            if (!isNaN(startMileage) && !isNaN(endMileage)) {
-                // 도착 주행거리가 출발보다 작은 경우
-                if (endMileage < startMileage) {
-                    alert('도착(km)의 주행거리는 출발(km)보다 크거나 같아야 합니다.');
-                    distanceCell.textContent = ''; // 주행거리 칸 비우기
-                    // 에러가 발생한 두 셀의 배경색을 변경하여 사용자에게 알림
-                    startMileageCell.style.backgroundColor = '#ffdddd';
-                    endMileageCell.style.backgroundColor = '#ffdddd';
-                    return; // 함수 종료
-                }
-
-                // 정상적인 경우, 주행거리를 계산하고 완료 여부 확인
-                distanceCell.textContent = Math.round(endMileage - startMileage).toLocaleString();
-                if (row.dataset.completed === 'false') {
-                    const rowNum = row.querySelector('.row-number span').textContent;
-                    if (confirm(`No.${rowNum} 운행을 완료하고 저장하시겠습니까?`)) {
-                        row.dataset.completed = 'true';
-                        row.classList.add('completed');
-                        row.querySelector('.toggle-btn').style.display = 'inline-block';
-                        if (row === tableBody.lastElementChild) {
-                            addNewRow();
-                            updateRowNumbers();
-                        }
-                        saveTableData();
-                    }
-                }
-            } else {
-                // 숫자 값이 하나라도 유효하지 않으면 주행거리 칸 비우기
-                distanceCell.textContent = '';
             }
         }
         
