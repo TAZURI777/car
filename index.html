@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>차량 운행일지 (최종 완성본)</title>
+    <title>차량 운행일지 (최종 수정본)</title>
     
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚗</text></svg>">
     
@@ -12,6 +12,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
 
     <style>
+        /* CSS 스타일은 이전과 모두 동일합니다. */
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; background-color: #f4f7f6; margin: 0; padding: 10px; }
         .container { width: 100%; max-width: 1600px; background-color: #ffffff; padding: 15px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); box-sizing: border-box; margin: 10px auto; }
         h1 { text-align: center; color: #333; margin-bottom: 20px; font-size: 24px; }
@@ -163,14 +164,23 @@
         async function handleImage(file, type, row) {
             showLoader(true, true);
             try {
-                const objectURL = URL.createObjectURL(file);
+                // ✅ FileReader를 사용하여 이미지 데이터를 DataURL로 변환
+                const imageDataUrl = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = e => resolve(e.target.result);
+                    reader.onerror = e => reject(e);
+                    reader.readAsDataURL(file);
+                });
+
                 const photoCell = row.querySelector(`.photo-cell.${type}-photo-cell`);
                 photoCell.innerHTML = '';
                 const thumbnail = document.createElement('img');
-                thumbnail.src = objectURL;
+                thumbnail.src = imageDataUrl; // 썸네일에도 DataURL 사용
                 thumbnail.className = 'thumbnail';
                 photoCell.appendChild(thumbnail);
                 photoCell.dataset.filename = file.name;
+                photoCell.dataset.imageDataUrl = imageDataUrl; // ✅ DataURL을 dataset에 저장
+                
                 row.querySelector(`input[data-type="${type}"]`).previousElementSibling.classList.add('btn-disabled');
 
                 const exifData = await getExifData(file);
@@ -230,7 +240,8 @@
                 row.querySelector(`.${type}-location`).textContent = '위치 정보 없음';
             }
         }
-
+        
+        // ✅ 저장 확인 후 새 행 추가 로직 복원
         function updateDistance(row) {
             const startMileage = parseFloat(row.querySelector('.start-mileage').textContent.replace(/,/g, ''));
             const endMileage = parseFloat(row.querySelector('.end-mileage').textContent.replace(/,/g, ''));
@@ -239,10 +250,17 @@
             if (!isNaN(startMileage) && !isNaN(endMileage) && endMileage >= startMileage) {
                 distanceCell.textContent = Math.round(endMileage - startMileage).toLocaleString();
                 if (row.dataset.completed === 'false') {
-                    row.dataset.completed = 'true';
-                    row.classList.add('completed');
-                    row.querySelector('.toggle-btn').style.display = 'inline-block';
-                    saveTableData();
+                    if (confirm('저장하고 완료하시겠습니까?')) {
+                        row.dataset.completed = 'true';
+                        row.classList.add('completed');
+                        row.querySelector('.toggle-btn').style.display = 'inline-block';
+                        
+                        // 현재 행이 마지막 행일 경우에만 새 행 추가
+                        if (row === tableBody.lastElementChild) {
+                            addNewRow();
+                        }
+                        saveTableData();
+                    }
                 }
             } else {
                 distanceCell.textContent = '';
@@ -260,6 +278,10 @@
             const endBtnClass = rowData.endPhotoFile ? 'custom-file-upload btn-disabled' : 'custom-file-upload';
             const toggleBtnDisplay = rowData.completed === 'true' ? 'inline-block' : 'none';
             const toggleBtnText = rowData.expanded ? '−' : '+';
+            
+            // ✅ DataURL로 썸네일 생성
+            const startThumbHTML = rowData.startImageDataUrl ? `<img src="${rowData.startImageDataUrl}" class="thumbnail">` : '';
+            const endThumbHTML = rowData.endImageDataUrl ? `<img src="${rowData.endImageDataUrl}" class="thumbnail">` : '';
 
             newRow.innerHTML = `
                 <td class="row-number" data-label="No."><span></span><button class="toggle-btn" style="display: ${toggleBtnDisplay};">${toggleBtnText}</button></td>
@@ -274,8 +296,8 @@
                 <td class="mileage end-mileage" contenteditable="true" data-label="도착(km)">${rowData.endMileage || ''}</td>
                 <td class="distance" data-label="주행거리(km)">${rowData.distance || ''}</td>
                 <td contenteditable="true" data-label="비고">${rowData.remarks || ''}</td>
-                <td class="photo-cell start-photo-cell" data-label="출발사진" data-filename="${rowData.startPhotoFile || ''}">${rowData.startPhotoHTML || ''}</td>
-                <td class="photo-cell end-photo-cell" data-label="도착사진" data-filename="${rowData.endPhotoFile || ''}">${rowData.endPhotoHTML || ''}</td>
+                <td class="photo-cell start-photo-cell" data-label="출발사진" data-filename="${rowData.startPhotoFile || ''}" data-image-data-url="${rowData.startImageDataUrl || ''}">${startThumbHTML}</td>
+                <td class="photo-cell end-photo-cell" data-label="도착사진" data-filename="${rowData.endPhotoFile || ''}" data-image-data-url="${rowData.endImageDataUrl || ''}">${endThumbHTML}</td>
                 <td data-label="관리"><button class="action-btn edit-row-btn">수정</button><button class="action-btn delete-row-btn">삭제</button></td>
             `;
             tableBody.appendChild(newRow);
@@ -321,15 +343,19 @@
                 saveTableData();
             }
         }
-
+        
+        // ✅ 저장 데이터에 이미지 DataURL 추가
         function saveTableData() {
             const rows = document.querySelectorAll('#log-body .log-row');
             const dataToSave = Array.from(rows).map(row => {
+                const runDateCell = row.querySelector('.run-date');
+                const startPhotoCell = row.querySelector('.start-photo-cell');
+                const endPhotoCell = row.querySelector('.end-photo-cell');
                 return {
                     completed: row.dataset.completed,
                     expanded: row.classList.contains('expanded'),
-                    displayDate: row.querySelector('.run-date').textContent,
-                    fullDate: row.querySelector('.run-date').dataset.fullDate,
+                    displayDate: runDateCell.textContent,
+                    fullDate: runDateCell.dataset.fullDate,
                     startLocation: row.querySelector('.start-location').textContent,
                     endLocation: row.querySelector('.end-location').textContent,
                     startTime: row.querySelector('.start-time').textContent,
@@ -338,10 +364,10 @@
                     endMileage: row.querySelector('.end-mileage').textContent,
                     distance: row.querySelector('.distance').textContent,
                     remarks: row.querySelector('[data-label="비고"]').textContent,
-                    startPhotoFile: row.querySelector('.start-photo-cell').dataset.filename,
-                    endPhotoFile: row.querySelector('.end-photo-cell').dataset.filename,
-                    startPhotoHTML: row.querySelector('.start-photo-cell').innerHTML,
-                    endPhotoHTML: row.querySelector('.end-photo-cell').innerHTML
+                    startPhotoFile: startPhotoCell.dataset.filename,
+                    endPhotoFile: endPhotoCell.dataset.filename,
+                    startImageDataUrl: startPhotoCell.dataset.imageDataUrl, // DataURL 저장
+                    endImageDataUrl: endPhotoCell.dataset.imageDataUrl   // DataURL 저장
                 };
             });
             localStorage.setItem('drivingLogData', JSON.stringify(dataToSave));
