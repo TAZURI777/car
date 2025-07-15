@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>차량 운행일지 (최종 완성본)</title>
+    
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚗</text></svg>">
+    
+    <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
+
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; background-color: #f4f7f6; margin: 0; padding: 10px; }
+        .container { width: 100%; max-width: 1600px; background-color: #ffffff; padding: 15px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); box-sizing: border-box; margin: 10px auto; }
+        h1 { text-align: center; color: #333; margin-bottom: 20px; font-size: 24px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px; }
+        
+        @media screen and (max-width: 900px) {
+            table, thead, tbody, th, td, tr { display: block; }
+            thead tr { position: absolute; top: -9999px; left: -9999px; }
+            tr.log-row { border: 1px solid #ccc; border-radius: 8px; margin-bottom: 15px; padding: 10px; }
+            td { border: none; border-bottom: 1px solid #eee; position: relative; padding-left: 50%; text-align: right; height: auto; min-height: 44px; display: flex; align-items: center; justify-content: flex-end; }
+            td:before { content: attr(data-label); position: absolute; left: 10px; width: 45%; padding-right: 10px; white-space: nowrap; text-align: left; font-weight: bold; color: #333; }
+            td:last-child { border-bottom: 0; }
+            .log-row.completed:not(.expanded) > td:not(:first-child) { display: none; }
+            .log-row.completed.is-editing > td:not(:first-child) { display: flex; }
+            .log-row.completed:not(.expanded) { padding: 0; }
+            .log-row.completed:not(.expanded) > td:first-child { border-bottom: none; }
+        }
+
+        @media screen and (min-width: 901px) {
+            table { table-layout: fixed; }
+            thead { display: table-header-group; }
+            tr { display: table-row; border: none; margin: 0; padding: 0; }
+            td { display: table-cell; text-align: center; height: 85px; padding: 8px; border: 1px solid #ddd; padding-left: 8px; }
+            td:before { content: ""; display: none; }
+            .log-row.completed:not(.expanded) > td { display: table-cell; }
+            .log-row.completed { cursor: default; }
+            .log-row.completed .toggle-btn { display: none; }
+        }
+
+        td[contenteditable="true"] { background-color: #e8f4ff; }
+        .is-editing .editable-cell { contenteditable: true !important; background-color: #fffbe8; outline: 2px solid #ffc107; }
+        .log-row.completed .toggle-btn { display: inline-block; }
+        .toggle-btn { font-size: 16px; font-weight: bold; cursor: pointer; padding: 4px 10px; margin-left: 10px; border-radius: 50%; border: 1px solid #ccc; background-color: #fff; line-height: 1; }
+        .row-number span { font-weight: bold; font-size: 16px; }
+        .action-btn { border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; color: white; margin: 0 2px; }
+        .edit-row-btn { background-color: #17a2b8; }
+        .edit-row-btn.editing { background-color: #ffc107; color: black; }
+        .delete-row-btn { background-color: #dc3545; }
+        .custom-file-upload { background-color: #007bff; transition: background-color 0.3s; padding: 10px 15px; font-size: 14px; border-radius: 8px; color: white; }
+        .btn-disabled { background-color: #6c757d; cursor: not-allowed; }
+        input[type="file"] { display: none; }
+        .thumbnail { max-height: 60px; max-width: 100px; width: auto; border-radius: 4px; cursor: pointer; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.85); }
+        .modal-content { margin: auto; display: block; max-width: 90%; max-height: 90%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        .close-modal { position: absolute; top: 15px; right: 35px; color: #f1f1f1; font-size: 40px; font-weight: bold; cursor: pointer; }
+        .loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.7); z-index: 2000; display: none; align-items: center; justify-content: center; flex-direction: column; }
+        .progress-bar-container { width: 80%; max-width: 300px; height: 20px; background-color: #e0e0e0; border-radius: 10px; overflow: hidden; margin-top: 20px; display: none; }
+        .progress-bar { width: 0%; height: 100%; background-color: #007bff; border-radius: 10px; }
+        .progress-bar.animated { animation: fill-progress 15s linear forwards; }
+        @keyframes fill-progress { from { width: 0%; } to { width: 100%; } }
+        .spinner { border: 6px solid #f3f3f3; border-top: 6px solid #3498db; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-top: 20px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .main-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
+        .main-btn { display: block; width: 100%; padding: 15px; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: 600; cursor: pointer; }
+        #add-row-btn { background-color: #007bff; }
+        #download-excel { background-color: #28a745; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>차량 운행일지</h1>
+        <div class="loader" id="loader">
+            <p id="loader-text">처리 중입니다...</p>
+            <div class="spinner"></div>
+            <div class="progress-bar-container">
+                <div class="progress-bar"></div>
+            </div>
+        </div>
+        <table id="log-table">
+            <thead>
+                <tr>
+                    <th>No.</th><th>출발촬영</th><th>도착촬영</th><th>운행 일자</th><th>출발지</th><th>도착지</th><th>출발시간(H)</th><th>도착시간(H)</th><th>출발(km)</th><th>도착(km)</th><th>주행거리(km)</th><th>비고</th><th>출발사진</th><th>도착사진</th><th>관리</th>
+                </tr>
+            </thead>
+            <tbody id="log-body"></tbody>
+        </table>
+        <div class="main-buttons">
+            <button id="add-row-btn" class="main-btn">행추가</button>
+            <button id="download-excel" class="main-btn">엑셀 다운로드</button>
+        </div>
+    </div>
+    
+    <div id="image-modal" class="modal"><span class="close-modal">&times;</span><img class="modal-content" id="modal-image"></div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const tableBody = document.getElementById('log-body');
+        const addRowButton = document.getElementById('add-row-btn');
+        const downloadExcelButton = document.getElementById('download-excel');
+        const loader = document.getElementById('loader');
+        const modal = document.getElementById('image-modal');
+        const modalImage = document.getElementById('modal-image');
+        const closeModal = document.querySelector('.close-modal');
+
+        tableBody.addEventListener('click', handleTableClick);
+        tableBody.addEventListener('change', handleFileChange);
+        tableBody.addEventListener('input', handleCellInput);
+        addRowButton.addEventListener('click', () => {
+            addNewRow();
+            updateRowNumbers();
+        });
+        closeModal.onclick = () => { modal.style.display = 'none'; };
+        modal.onclick = (event) => { if (event.target === modal) { modal.style.display = 'none'; } };
+        downloadExcelButton.addEventListener('click', downloadExcel);
+
+        function handleTableClick(event) {
+            const target = event.target;
+            const row = target.closest('.log-row');
+            if (!row) return;
+
+            if (target.classList.contains('custom-file-upload') && !target.classList.contains('btn-disabled')) {
+                target.nextElementSibling.click();
+            } else if (target.classList.contains('thumbnail')) {
+                modal.style.display = 'block';
+                modalImage.src = target.src;
+            } else if (target.classList.contains('edit-row-btn')) {
+                toggleRowEditMode(row, target);
+            } else if (target.classList.contains('delete-row-btn')) {
+                deleteRow(row);
+            } else if (target.classList.contains('toggle-btn') && row.classList.contains('completed')) {
+                row.classList.toggle('expanded');
+                target.textContent = row.classList.contains('expanded') ? '−' : '+';
+                saveTableData();
+            }
+        }
+
+        function handleFileChange(event) {
+            const target = event.target;
+            if (target.classList.contains('photo-input')) {
+                const file = target.files[0];
+                if (!file) return;
+                const type = target.dataset.type;
+                const currentRow = target.closest('.log-row');
+                handleImage(file, type, currentRow);
+            }
+        }
+
+        function handleCellInput(event) {
+            const target = event.target;
+            if (target.isContentEditable) {
+                const currentRow = target.closest('.log-row');
+                if (target.classList.contains('mileage')) {
+                    updateDistance(currentRow);
+                }
+                saveTableData();
+            }
+        }
+
+        async function handleImage(file, type, row) {
+            showLoader(true, true);
+            try {
+                const objectURL = URL.createObjectURL(file);
+                const photoCell = row.querySelector(`.photo-cell.${type}-photo-cell`);
+                photoCell.innerHTML = '';
+                const thumbnail = document.createElement('img');
+                thumbnail.src = objectURL;
+                thumbnail.className = 'thumbnail';
+                photoCell.appendChild(thumbnail);
+                photoCell.dataset.filename = file.name;
+                row.querySelector(`input[data-type="${type}"]`).previousElementSibling.classList.add('btn-disabled');
+
+                const exifData = await getExifData(file);
+                await updateTableFromExif(exifData, type, row);
+
+                const ocrPromise = (async () => {
+                    const processedImage = await preprocessImage(file);
+                    return await recognizeMileage(processedImage);
+                })();
+                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('OCR 시간 초과 (15초)')), 15000));
+                
+                const mileage = await Promise.race([ocrPromise, timeoutPromise]);
+                
+                const mileageCell = row.querySelector(`.mileage.${type}-mileage`);
+                if (mileage) {
+                    mileageCell.textContent = mileage;
+                } else {
+                    alert('계기판의 주행거리를 인식하지 못했습니다. 직접 입력해주세요.');
+                    mileageCell.textContent = '';
+                }
+                updateDistance(row);
+                saveTableData();
+            } catch (error) {
+                console.error('이미지 처리 중 오류 발생:', error);
+                alert(error.message);
+            } finally {
+                showLoader(false);
+            }
+        }
+
+        async function updateTableFromExif(exifData, type, row) {
+            let dateToUse;
+            if (exifData && exifData.dateTime) {
+                let formattedString = exifData.dateTime.replace(' ', 'T').replace(/:/g, (m, o) => o < 10 ? '-' : m);
+                dateToUse = new Date(formattedString);
+            } else {
+                dateToUse = new Date();
+            }
+            if (isNaN(dateToUse.getTime())) { dateToUse = new Date(); }
+
+            const year = dateToUse.getFullYear(), month = dateToUse.getMonth() + 1, day = dateToUse.getDate();
+            const displayDate = `${month}/${day}`, fullDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const formattedTime = `${String(dateToUse.getHours()).padStart(2, '0')}:${String(dateToUse.getMinutes()).padStart(2, '0')}`;
+            
+            const runDateCell = row.querySelector('.run-date');
+            if (type === 'start') {
+                runDateCell.textContent = displayDate;
+                runDateCell.dataset.fullDate = fullDate;
+                row.querySelector('.start-time').textContent = formattedTime;
+            } else {
+                row.querySelector('.end-time').textContent = formattedTime;
+            }
+            if (exifData && exifData.gpsLatitude && exifData.gpsLongitude) {
+                const address = await getAddressFromCoordinates(exifData.gpsLatitude, exifData.gpsLongitude);
+                row.querySelector(`.${type}-location`).textContent = address;
+            } else {
+                row.querySelector(`.${type}-location`).textContent = '위치 정보 없음';
+            }
+        }
+
+        function updateDistance(row) {
+            const startMileage = parseFloat(row.querySelector('.start-mileage').textContent.replace(/,/g, ''));
+            const endMileage = parseFloat(row.querySelector('.end-mileage').textContent.replace(/,/g, ''));
+            const distanceCell = row.querySelector('.distance');
+
+            if (!isNaN(startMileage) && !isNaN(endMileage) && endMileage >= startMileage) {
+                distanceCell.textContent = Math.round(endMileage - startMileage).toLocaleString();
+                if (row.dataset.completed === 'false') {
+                    row.dataset.completed = 'true';
+                    row.classList.add('completed');
+                    row.querySelector('.toggle-btn').style.display = 'inline-block';
+                    saveTableData();
+                }
+            } else {
+                distanceCell.textContent = '';
+            }
+        }
+        
+        function addNewRow(rowData = {}) {
+            const newRow = document.createElement('tr');
+            newRow.className = 'log-row';
+            if (rowData.completed === 'true') { newRow.classList.add('completed'); }
+            if (rowData.expanded === true) { newRow.classList.add('expanded'); }
+            newRow.dataset.completed = rowData.completed || 'false';
+            
+            const startBtnClass = rowData.startPhotoFile ? 'custom-file-upload btn-disabled' : 'custom-file-upload';
+            const endBtnClass = rowData.endPhotoFile ? 'custom-file-upload btn-disabled' : 'custom-file-upload';
+            const toggleBtnDisplay = rowData.completed === 'true' ? 'inline-block' : 'none';
+            const toggleBtnText = rowData.expanded ? '−' : '+';
+
+            newRow.innerHTML = `
+                <td class="row-number" data-label="No."><span></span><button class="toggle-btn" style="display: ${toggleBtnDisplay};">${toggleBtnText}</button></td>
+                <td data-label="출발촬영"><label class="${startBtnClass}">📸 출발</label><input class="photo-input" data-type="start" type="file" accept="image/*" capture="environment"></td>
+                <td data-label="도착촬영"><label class="${endBtnClass}">📸 도착</label><input class="photo-input" data-type="end" type="file" accept="image/*" capture="environment"></td>
+                <td class="run-date editable-cell" data-label="운행 일자" data-full-date="${rowData.fullDate || ''}">${rowData.displayDate || ''}</td>
+                <td class="start-location editable-cell" data-label="출발지">${rowData.startLocation || ''}</td>
+                <td class="end-location editable-cell" data-label="도착지">${rowData.endLocation || ''}</td>
+                <td class="start-time editable-cell" data-label="출발시간(H)">${rowData.startTime || ''}</td>
+                <td class="end-time editable-cell" data-label="도착시간(H)">${rowData.endTime || ''}</td>
+                <td class="mileage start-mileage" contenteditable="true" data-label="출발(km)">${rowData.startMileage || ''}</td>
+                <td class="mileage end-mileage" contenteditable="true" data-label="도착(km)">${rowData.endMileage || ''}</td>
+                <td class="distance" data-label="주행거리(km)">${rowData.distance || ''}</td>
+                <td contenteditable="true" data-label="비고">${rowData.remarks || ''}</td>
+                <td class="photo-cell start-photo-cell" data-label="출발사진" data-filename="${rowData.startPhotoFile || ''}">${rowData.startPhotoHTML || ''}</td>
+                <td class="photo-cell end-photo-cell" data-label="도착사진" data-filename="${rowData.endPhotoFile || ''}">${rowData.endPhotoHTML || ''}</td>
+                <td data-label="관리"><button class="action-btn edit-row-btn">수정</button><button class="action-btn delete-row-btn">삭제</button></td>
+            `;
+            tableBody.appendChild(newRow);
+        }
+
+        function deleteRow(row) {
+            if (confirm('이 행을 정말로 삭제하시겠습니까?')) {
+                const isLastRow = tableBody.children.length <= 1;
+                row.remove();
+                if (isLastRow) { addNewRow(); }
+                updateRowNumbers();
+                saveTableData();
+            }
+        }
+        
+        function updateRowNumbers() {
+            const rows = tableBody.querySelectorAll('.log-row');
+            rows.forEach((row, index) => {
+                row.querySelector('.row-number span').textContent = index + 1;
+            });
+        }
+        
+        function toggleRowEditMode(row, button) {
+            const isEditing = !row.classList.contains('is-editing');
+            row.classList.toggle('is-editing', isEditing);
+            button.textContent = isEditing ? '완료' : '수정';
+            button.classList.toggle('editing', isEditing);
+
+            const cellsToEdit = row.querySelectorAll('.editable-cell');
+            cellsToEdit.forEach(cell => {
+                cell.contentEditable = isEditing;
+            });
+            
+            if (!isEditing) {
+                const runDateCell = row.querySelector('.run-date');
+                const dateParts = runDateCell.textContent.split('/');
+                if (dateParts.length === 2) {
+                    const yearGuess = new Date().getFullYear();
+                    const month = String(dateParts[0]).padStart(2, '0');
+                    const day = String(dateParts[1]).padStart(2, '0');
+                    runDateCell.dataset.fullDate = `${yearGuess}-${month}-${day}`;
+                }
+                saveTableData();
+            }
+        }
+
+        function saveTableData() {
+            const rows = document.querySelectorAll('#log-body .log-row');
+            const dataToSave = Array.from(rows).map(row => {
+                const runDateCell = row.querySelector('.run-date');
+                return {
+                    completed: row.dataset.completed,
+                    expanded: row.classList.contains('expanded'),
+                    displayDate: runDateCell.textContent,
+                    fullDate: runDateCell.dataset.fullDate,
+                    startLocation: row.querySelector('.start-location').textContent,
+                    endLocation: row.querySelector('.end-location').textContent,
+                    startTime: row.querySelector('.start-time').textContent,
+                    endTime: row.querySelector('.end-time').textContent,
+                    startMileage: row.querySelector('.start-mileage').textContent,
+                    endMileage: row.querySelector('.end-mileage').textContent,
+                    distance: row.querySelector('.distance').textContent,
+                    remarks: row.querySelector('[data-label="비고"]').textContent,
+                    startPhotoFile: row.querySelector('.start-photo-cell').dataset.filename,
+                    endPhotoFile: row.querySelector('.end-photo-cell').dataset.filename,
+                    startPhotoHTML: row.querySelector('.start-photo-cell').innerHTML,
+                    endPhotoHTML: row.querySelector('.end-photo-cell').innerHTML
+                };
+            });
+            localStorage.setItem('drivingLogData', JSON.stringify(dataToSave));
+        }
+
+        function loadTableData() {
+            const savedData = localStorage.getItem('drivingLogData');
+            if (savedData) {
+                try {
+                    const dataArray = JSON.parse(savedData);
+                    if (dataArray && dataArray.length > 0) {
+                        tableBody.innerHTML = '';
+                        dataArray.forEach(rowData => { addNewRow(rowData); });
+                        updateRowNumbers();
+                        return;
+                    }
+                } catch (e) {
+                    console.error("저장된 데이터 파싱 오류:", e);
+                    localStorage.removeItem('drivingLogData');
+                }
+            }
+            addNewRow();
+        }
+
+        function downloadExcel() {
+            const table = document.getElementById('log-table').cloneNode(true);
+            const headerCells = Array.from(table.tHead.rows[0].cells);
+            const manageHeaderIndex = headerCells.findIndex(th => th.textContent === '관리');
+
+            if (manageHeaderIndex > -1) {
+                table.tHead.rows[0].deleteCell(manageHeaderIndex);
+                Array.from(table.tBodies[0].rows).forEach(row => { row.deleteCell(manageHeaderIndex); });
+            }
+            table.querySelectorAll('.log-row').forEach(row => {
+                row.querySelector('.row-number').innerHTML = row.querySelector('.row-number span').textContent;
+                const runDateCell = row.querySelector('.run-date');
+                if (runDateCell) runDateCell.textContent = runDateCell.dataset.fullDate || runDateCell.textContent;
+                const startCell = row.querySelector('.start-photo-cell');
+                const endCell = row.querySelector('.end-photo-cell');
+                if (startCell) startCell.innerHTML = startCell.dataset.filename || '';
+                if (endCell) endCell.innerHTML = endCell.dataset.filename || '';
+            });
+            const wb = XLSX.utils.table_to_book(table, { sheet: "운행일지" });
+            XLSX.writeFile(wb, '운행일지.xlsx');
+        }
+        
+        function getExifData(file) {
+            return new Promise((resolve) => {
+                let resolved = false;
+                const timeoutId = setTimeout(() => { if (!resolved) { console.warn("EXIF 읽기 시간 초과"); resolved = true; resolve(null); } }, 2000);
+                try {
+                    EXIF.getData(file, function() {
+                        if (resolved) return;
+                        clearTimeout(timeoutId);
+                        const dt = EXIF.getTag(this, "DateTimeOriginal"), gLatR = EXIF.getTag(this, "GPSLatitudeRef"), gLat = EXIF.getTag(this, "GPSLatitude"), gLonR = EXIF.getTag(this, "GPSLongitudeRef"), gLon = EXIF.getTag(this, "GPSLongitude");
+                        let lat = null, lon = null;
+                        if (gLat && gLon) { lat = convertDMSToDD(gLat, gLatR); lon = convertDMSToDD(gLon, gLonR); }
+                        resolved = true;
+                        resolve({ dateTime: dt || null, gpsLatitude: lat, gpsLongitude: lon });
+                    });
+                } catch (error) { if (resolved) return; clearTimeout(timeoutId); console.error("EXIF 처리 에러:", error); resolve(null); }
+            });
+        }
+        
+        function preprocessImage(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        canvas.width = img.width; canvas.height = img.height;
+                        ctx.filter = 'blur(1px)';
+                        ctx.drawImage(img, 0, 0);
+                        ctx.filter = 'none';
+                        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                        const data = imageData.data;
+                        for (let i = 0; i < data.length; i += 4) {
+                            const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                            const value = avg > 150 ? 255 : 0;
+                            data[i] = data[i + 1] = data[i + 2] = value;
+                        }
+                        ctx.putImageData(imageData, 0, 0);
+                        canvas.toBlob(resolve, 'image/png');
+                    };
+                    img.onerror = reject;
+                    img.src = e.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        async function recognizeMileage(imageSource) {
+            const worker = await Tesseract.createWorker('kor+eng');
+            try {
+                const { data: { text } } = await worker.recognize(imageSource);
+                const regex = /(\d{5,7})\s*k/gi;
+                const matches = text.matchAll(regex);
+                const numbers = Array.from(matches, match => parseInt(match[1], 10));
+                if (numbers.length > 0) { return String(Math.max(...numbers)); }
+                return null;
+            } catch (error) { console.error("OCR 처리 중 오류:", error); return null; }
+            finally { await worker.terminate(); }
+        }
+        
+        function convertDMSToDD(dms, ref) {
+            if (!dms || dms.length < 3) return 0;
+            const dd = dms[0] + dms[1] / 60 + dms[2] / 3600;
+            return (ref === "S" || ref === "W") ? -dd : dd;
+        }
+
+        async function getAddressFromCoordinates(lat, lon) {
+            const GOOGLE_API_KEY = 'AIzaSyBxjQGkQvXnIKfs371_MwbxiH-xp7ZWU2U';
+            if (GOOGLE_API_KEY === '여기에_발급받은_구글_API_키를_입력하세요') return "API 키 필요";
+            const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lon}&key=${GOOGLE_API_KEY}&language=ko`;
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                if (data.status === 'OK' && data.results.length > 0) {
+                    const comps = data.results[0].address_components;
+                    let city = '', gu = '', dong = '';
+                    for (const c of comps) {
+                        if (c.types.includes("locality")) city = c.long_name;
+                        if (c.types.includes("sublocality_level_1")) gu = c.long_name;
+                        if (c.types.includes("sublocality_level_2")) dong = c.long_name;
+                    }
+                    return `${gu || city} ${dong}`.trim() || '주소 정보 없음';
+                }
+                return "주소 정보 없음";
+            } catch (error) { return "주소 조회 실패"; }
+        }
+        
+        function showLoader(show, showProgress = false) {
+            const loader = document.getElementById('loader');
+            const progressBarContainer = loader.querySelector('.progress-bar-container');
+            const progressBar = loader.querySelector('.progress-bar');
+            const loaderText = loader.querySelector('#loader-text');
+
+            if (show) {
+                loader.style.display = 'flex';
+                if (showProgress) {
+                    loaderText.textContent = '계기판 주행거리를 확인합니다... (15초)';
+                    progressBarContainer.style.display = 'block';
+                    progressBar.classList.remove('animated');
+                    void progressBar.offsetWidth;
+                    progressBar.classList.add('animated');
+                } else {
+                    loaderText.textContent = '처리 중입니다...';
+                    progressBarContainer.style.display = 'none';
+                }
+            } else {
+                loader.style.display = 'none';
+            }
+        }
+        
+        loadTableData();
+    });
+    </script>
+</body>
+</html>
