@@ -1,619 +1,557 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="referrer" content="strict-origin-when-cross-origin">
-    <title>차량 운행일지 (최종 완성본)</title>
-    
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚗</text></svg>">
-    
-    <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
-    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
-    
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css" />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // ✅ 전국 LG전자 센터 좌표 데이터 (이전과 동일)
+    const serviceCenters = [
+        { name: "강남센터", lat: 37.4947, lon: 127.0305 },{ name: "강동센터", lat: 37.5485, lon: 127.1471 },{ name: "강북센터", lat: 37.6328, lon: 127.0253 },{ name: "강서센터", lat: 37.5601, lon: 126.8488 },{ name: "관악센터", lat: 37.4789, lon: 126.9503 },{ name: "광진센터", lat: 37.5385, lon: 127.0827 },{ name: "구로센터", lat: 37.4954, lon: 126.8872 },{ name: "금천센터", lat: 37.4526, lon: 126.9038 },{ name: "노원센터", lat: 37.6548, lon: 127.0594 },{ name: "동대문센터", lat: 37.5742, lon: 127.0396 },{ name: "동작센터", lat: 37.5080, lon: 126.9427 },{ name: "마포센터", lat: 37.5634, lon: 126.9084 },{ name: "서대문센터", lat: 37.5794, lon: 126.9366 },{ name: "서초센터", lat: 37.4836, lon: 127.0174 },{ name: "성동센터", lat: 37.5634, lon: 127.0252 },{ name: "성북센터", lat: 37.5891, lon: 127.0182 },{ name: "송파센터", lat: 37.5144, lon: 127.1058 },{ name: "양천센터", lat: 37.5173, lon: 126.8664 },{ name: "영등포센터", lat: 37.5262, lon: 126.8966 },{ name: "용산센터", lat: 37.5323, lon: 126.9644 },{ name: "은평센터", lat: 37.6027, lon: 126.9189 },{ name: "중랑센터", lat: 37.6062, lon: 127.0940 },
+        { name: "경기광주센터", lat: 37.4087, lon: 127.2519 },{ name: "광명센터", lat: 37.4789, lon: 126.8647 },{ name: "구리센터", lat: 37.5991, lon: 127.1430 },{ name: "군포센터", lat: 37.3618, lon: 126.9351 },{ name: "김포센터", lat: 37.6152, lon: 126.7157 },{ name: "남양주센터", lat: 37.6341, lon: 127.2158 },{ name: "부천센터", lat: 37.4839, lon: 126.7831 },{ name: "분당센터", lat: 37.3862, lon: 127.1215 },{ name: "수원센터", lat: 37.2636, lon: 127.0286 },{ name: "시흥센터", lat: 37.3800, lon: 126.8028 },{ name: "안산센터", lat: 37.3216, lon: 126.8309 },{ name: "안성센터", lat: 37.0084, lon: 127.2721 },{ name: "안양센터", lat: 37.3911, lon: 126.9515 },{ name: "오산센터", lat: 37.1513, lon: 127.0722, radius: 500 },{ name: "용인센터", lat: 37.2411, lon: 127.1776 },{ name: "의정부센터", lat: 37.7379, lon: 127.0471 },{ name: "이천센터", lat: 37.2773, lon: 127.4449 },{ name: "일산센터", lat: 37.6831, lon: 126.7758 },{ name: "파주센터", lat: 37.7601, lon: 126.7797 },{ name: "평택센터", lat: 36.9912, lon: 127.1121 },{ name: "포천센터", lat: 37.8941, lon: 127.2003 },{ name: "하남센터", lat: 37.5367, lon: 127.2081 },{ name: "화성센터", lat: 37.1994, lon: 126.8314 }
+    ];
 
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; background-color: #f4f7f6; margin: 0; padding: 10px; }
-        .container { width: 100%; max-width: 1600px; background-color: #ffffff; padding: 15px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); box-sizing: border-box; margin: 10px auto; }
-        h1 { text-align: center; color: #333; margin-bottom: 20px; font-size: 24px; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px; }
-        
-        @media screen and (max-width: 900px) {
-            table, thead, tbody, th, td, tr { display: block; }
-            thead tr { position: absolute; top: -9999px; left: -9999px; }
-            tr.log-row { border: 1px solid #ccc; border-radius: 8px; margin-bottom: 15px; padding: 10px; }
-            td { border: none; border-bottom: 1px solid #eee; position: relative; padding-left: 50%; text-align: right; height: auto; min-height: 44px; display: flex; align-items: center; justify-content: flex-end; }
-            td:before { content: attr(data-label); position: absolute; left: 10px; width: 45%; padding-right: 10px; white-space: nowrap; text-align: left; font-weight: bold; color: #333; }
-            td:last-child { border-bottom: 0; }
-            .log-row.completed:not(.expanded) > td:not(:first-child) { display: none; }
-            .log-row.completed.is-editing > td:not(:first-child) { display: flex; }
-            .log-row.completed:not(.expanded) { padding: 0; }
-            .log-row.completed:not(.expanded) > td:first-child { border-bottom: none; }
-        }
+    const tableBody = document.getElementById('log-body');
+    const addRowButton = document.getElementById('add-row-btn');
+    const downloadExcelButton = document.getElementById('download-excel');
+    const loader = document.getElementById('loader');
+    const modal = document.getElementById('image-modal');
+    const modalImage = document.getElementById('modal-image');
+    const closeModal = document.querySelector('.close-modal');
+    const saveToGalleryBtn = document.getElementById('save-to-gallery-btn');
 
-        @media screen and (min-width: 901px) {
-            table { table-layout: fixed; }
-            thead { display: table-header-group; }
-            tr { display: table-row; border: none; margin: 0; padding: 0; }
-            td { display: table-cell; text-align: center; height: 85px; padding: 8px; border: 1px solid #ddd; padding-left: 8px; }
-            td:before { content: ""; display: none; }
-            .log-row.completed:not(.expanded) > td { display: table-cell; }
-            .log-row.completed { cursor: default; }
-            .log-row.completed .toggle-btn { display: none; }
-        }
+    let cropper = null;
+    let currentCropInfo = {
+        row: null,
+        type: null,
+        file: null
+    };
 
-        td[contenteditable="true"] { background-color: #e8f4ff; }
-        .is-editing .editable-cell[contenteditable="true"] { background-color: #fffbe8; outline: 2px solid #ffc107; }
-        .log-row.completed .toggle-btn { display: inline-block; }
-        .toggle-btn { font-size: 16px; font-weight: bold; cursor: pointer; padding: 4px 10px; margin-left: 10px; border-radius: 50%; border: 1px solid #ccc; background-color: #fff; line-height: 1; }
-        .row-number span { font-weight: bold; font-size: 16px; }
-        .action-btn { border: none; padding: 8px 12px; border-radius: 5px; cursor: pointer; color: white; margin: 0 2px; }
-        .edit-row-btn { background-color: #17a2b8; }
-        .edit-row-btn.editing { background-color: #ffc107; color: black; }
-        .delete-row-btn { background-color: #dc3545; }
-        .custom-file-upload { background-color: #007bff; transition: background-color 0.3s; padding: 10px 15px; font-size: 14px; border-radius: 8px; color: white;}
-        .btn-disabled { background-color: #6c757d; cursor: not-allowed; }
-        input[type="file"] { display: none; }
-        .thumbnail { max-height: 60px; max-width: 100px; width: auto; border-radius: 4px; cursor: pointer; }
-        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.85); }
-        .modal-content { margin: auto; display: block; max-width: 90%; max-height: 80%; }
-        .modal-bottom { text-align: center; padding-top: 20px; }
-        #save-to-gallery-btn { padding: 12px 25px; font-size: 16px; font-weight: bold; background-color: #007bff; color: white; border: none; border-radius: 8px; cursor: pointer; }
-        .close-modal { position: absolute; top: 15px; right: 35px; color: #f1f1f1; font-size: 40px; font-weight: bold; cursor: pointer; }
-        .loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.7); z-index: 2000; display: none; align-items: center; justify-content: center; flex-direction: column; }
-        .progress-bar-container { width: 80%; max-width: 300px; height: 20px; background-color: #e0e0e0; border-radius: 10px; overflow: hidden; margin-top: 20px; display: none; }
-        .progress-bar { width: 0%; height: 100%; background-color: #007bff; border-radius: 10px; }
-        .progress-bar.animated { animation: fill-progress 15s linear forwards; }
-        @keyframes fill-progress { from { width: 0%; } to { width: 100%; } }
-        .spinner { border: 6px solid #f3f3f3; border-top: 6px solid #3498db; border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin-top: 20px; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .main-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
-        .main-btn { display: block; width: 100%; padding: 15px; color: white; border: none; border-radius: 8px; font-size: 18px; font-weight: 600; cursor: pointer; }
-        #add-row-btn { background-color: #007bff; }
-        #download-excel { background-color: #28a745; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>차량 운행일지</h1>
-        <div class="loader" id="loader">
-            <p id="loader-text">처리 중입니다...</p>
-            <div class="spinner"></div>
-            <div class="progress-bar-container">
-                <div class="progress-bar"></div>
-            </div>
-        </div>
-        <table id="log-table">
-            <thead>
-                <tr>
-                    <th>No.</th><th>출발촬영</th><th>도착촬영</th><th>운행 일자</th><th>출발지</th><th>도착지</th><th>출발시간(H)</th><th>도착시간(H)</th><th>출발(km)</th><th>도착(km)</th><th>주행거리(km)</th><th>비고</th><th>출발사진</th><th>도착사진</th><th>관리</th>
-                </tr>
-            </thead>
-            <tbody id="log-body"></tbody>
-        </table>
-        <div class="main-buttons">
-            <button id="add-row-btn" class="main-btn">행추가</button>
-            <button id="download-excel" class="main-btn">엑셀 다운로드</button>
-        </div>
-    </div>
-    
-    <div id="image-modal" class="modal">
-        <span class="close-modal">&times;</span>
-        <img class="modal-content" id="modal-image">
-        <div class="modal-bottom">
-            <button id="save-to-gallery-btn">갤러리에 저장</button>
-        </div>
-    </div>
+    // --- 이벤트 리스너 설정 (이전과 동일) ---
+    tableBody.addEventListener('click', handleTableClick);
+    tableBody.addEventListener('change', handleFileChange);
+    tableBody.addEventListener('input', handleCellInput);
+    addRowButton.addEventListener('click', () => { addNewRow(); updateRowNumbers(); });
+    closeModal.onclick = () => { modal.style.display = 'none'; };
+    modal.addEventListener('click', (event) => { if (event.target === modal) { modal.style.display = 'none'; } });
+    saveToGalleryBtn.addEventListener('click', () => {
+        const link = document.createElement('a');
+        link.href = modalImage.src;
+        link.download = `운행일지사진_${new Date().getTime()}.jpg`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    });
+    downloadExcelButton.addEventListener('click', downloadExcel);
 
-    <div id="crop-modal" class="modal">
-        <div class="modal-content" style="background-color: white; padding: 20px; border-radius: 10px; max-width: 90vw;">
-            <h2>주행거리 영역을 선택하세요</h2>
-            <div>
-                <img id="image-to-crop" style="max-width: 100%;">
-            </div>
-            <button id="crop-btn" class="main-btn" style="margin-top: 15px; background-color: #28a745;">선택 완료</button>
-        </div>
-    </div>
-
-    <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        // ✅ 전국 LG전자 센터 좌표 데이터
-        const serviceCenters = [
-            { name: "강남센터", lat: 37.4947, lon: 127.0305 },{ name: "강동센터", lat: 37.5485, lon: 127.1471 },{ name: "강북센터", lat: 37.6328, lon: 127.0253 },{ name: "강서센터", lat: 37.5601, lon: 126.8488 },{ name: "관악센터", lat: 37.4789, lon: 126.9503 },{ name: "광진센터", lat: 37.5385, lon: 127.0827 },{ name: "구로센터", lat: 37.4954, lon: 126.8872 },{ name: "금천센터", lat: 37.4526, lon: 126.9038 },{ name: "노원센터", lat: 37.6548, lon: 127.0594 },{ name: "동대문센터", lat: 37.5742, lon: 127.0396 },{ name: "동작센터", lat: 37.5080, lon: 126.9427 },{ name: "마포센터", lat: 37.5634, lon: 126.9084 },{ name: "서대문센터", lat: 37.5794, lon: 126.9366 },{ name: "서초센터", lat: 37.4836, lon: 127.0174 },{ name: "성동센터", lat: 37.5634, lon: 127.0252 },{ name: "성북센터", lat: 37.5891, lon: 127.0182 },{ name: "송파센터", lat: 37.5144, lon: 127.1058 },{ name: "양천센터", lat: 37.5173, lon: 126.8664 },{ name: "영등포센터", lat: 37.5262, lon: 126.8966 },{ name: "용산센터", lat: 37.5323, lon: 126.9644 },{ name: "은평센터", lat: 37.6027, lon: 126.9189 },{ name: "중랑센터", lat: 37.6062, lon: 127.0940 },
-            { name: "경기광주센터", lat: 37.4087, lon: 127.2519 },{ name: "광명센터", lat: 37.4789, lon: 126.8647 },{ name: "구리센터", lat: 37.5991, lon: 127.1430 },{ name: "군포센터", lat: 37.3618, lon: 126.9351 },{ name: "김포센터", lat: 37.6152, lon: 126.7157 },{ name: "남양주센터", lat: 37.6341, lon: 127.2158 },{ name: "부천센터", lat: 37.4839, lon: 126.7831 },{ name: "분당센터", lat: 37.3862, lon: 127.1215 },{ name: "수원센터", lat: 37.2636, lon: 127.0286 },{ name: "시흥센터", lat: 37.3800, lon: 126.8028 },{ name: "안산센터", lat: 37.3216, lon: 126.8309 },{ name: "안성센터", lat: 37.0084, lon: 127.2721 },{ name: "안양센터", lat: 37.3911, lon: 126.9515 },{ name: "오산센터", lat: 37.1513, lon: 127.0722, radius: 500 },{ name: "용인센터", lat: 37.2411, lon: 127.1776 },{ name: "의정부센터", lat: 37.7379, lon: 127.0471 },{ name: "이천센터", lat: 37.2773, lon: 127.4449 },{ name: "일산센터", lat: 37.6831, lon: 126.7758 },{ name: "파주센터", lat: 37.7601, lon: 126.7797 },{ name: "평택센터", lat: 36.9912, lon: 127.1121 },{ name: "포천센터", lat: 37.8941, lon: 127.2003 },{ name: "하남센터", lat: 37.5367, lon: 127.2081 },{ name: "화성센터", lat: 37.1994, lon: 126.8314 }
-        ];
-
-        const tableBody = document.getElementById('log-body');
-        const addRowButton = document.getElementById('add-row-btn');
-        const downloadExcelButton = document.getElementById('download-excel');
-        const loader = document.getElementById('loader');
-        const modal = document.getElementById('image-modal');
-        const modalImage = document.getElementById('modal-image');
-        const closeModal = document.querySelector('.close-modal');
-        const saveToGalleryBtn = document.getElementById('save-to-gallery-btn');
-
-        // Cropper.js 관련 전역 변수
-        let cropper = null;
-        let currentCropInfo = {
-            row: null,
-            type: null,
-            file: null
-        };
-
-        tableBody.addEventListener('click', handleTableClick);
-        tableBody.addEventListener('change', handleFileChange);
-        tableBody.addEventListener('input', handleCellInput);
-        addRowButton.addEventListener('click', () => { addNewRow(); updateRowNumbers(); });
-        closeModal.onclick = () => { modal.style.display = 'none'; };
-        modal.addEventListener('click', (event) => { if (event.target === modal) { modal.style.display = 'none'; } });
-        saveToGalleryBtn.addEventListener('click', () => {
-            const link = document.createElement('a');
-            link.href = modalImage.src;
-            link.download = `운행일지사진_${new Date().getTime()}.jpg`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        });
-        downloadExcelButton.addEventListener('click', downloadExcel);
-
-        // '선택 완료' 버튼 클릭 이벤트 리스너 추가
-        document.getElementById('crop-btn').addEventListener('click', () => {
-            if (cropper) {
-                const croppedCanvas = cropper.getCroppedCanvas({
-                    maxWidth: 1024,
-                    imageSmoothingQuality: 'high',
+    // --- 크롭 완료 버튼 이벤트 리스너 (이전과 동일) ---
+    document.getElementById('crop-btn').addEventListener('click', () => {
+        if (cropper) {
+            const croppedCanvas = cropper.getCroppedCanvas({
+                maxWidth: 1024,
+                imageSmoothingQuality: 'high',
+            });
+            croppedCanvas.toBlob((blob) => {
+                const croppedFile = new File([blob], currentCropInfo.file.name, {
+                    type: 'image/jpeg',
+                    lastModified: Date.now()
                 });
-                croppedCanvas.toBlob((blob) => {
-                    const croppedFile = new File([blob], currentCropInfo.file.name, {
-                        type: 'image/jpeg',
-                        lastModified: Date.now()
-                    });
-                    processImage(croppedFile, currentCropInfo.type, currentCropInfo.row);
-                }, 'image/jpeg');
-                document.getElementById('crop-modal').style.display = 'none';
-                cropper.destroy();
-                cropper = null;
-            }
-        });
+                processImage(croppedFile, currentCropInfo.type, currentCropInfo.row);
+            }, 'image/jpeg');
+            document.getElementById('crop-modal').style.display = 'none';
+            cropper.destroy();
+            cropper = null;
+        }
+    });
 
-        function handleTableClick(event) {
-            const target = event.target;
-            const row = target.closest('.log-row');
-            if (!row) return;
-            if (target.classList.contains('custom-file-upload') && !target.classList.contains('btn-disabled')) {
-                target.nextElementSibling.click();
-            } else if (target.classList.contains('thumbnail')) {
-                modal.style.display = 'block';
-                modalImage.src = target.src;
-            } else if (target.classList.contains('edit-row-btn')) {
-                toggleRowEditMode(row, target);
-            } else if (target.classList.contains('delete-row-btn')) {
-                deleteRow(row);
-            } else if (target.classList.contains('toggle-btn') && row.classList.contains('completed')) {
-                row.classList.toggle('expanded');
-                target.textContent = row.classList.contains('expanded') ? '−' : '+';
+    // --- 🌟 [수정됨] EXIF 방향 정보에 맞춰 이미지 회전하는 함수 ---
+    function getCorrectlyOrientedImage(file) {
+        return new Promise((resolve, reject) => {
+            let orientation = 1;
+            EXIF.getData(file, function() {
+                orientation = EXIF.getTag(this, 'Orientation') || 1;
+            });
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (orientation > 4 && orientation < 9) {
+                        canvas.width = height;
+                        canvas.height = width;
+                    } else {
+                        canvas.width = width;
+                        canvas.height = height;
+                    }
+
+                    switch (orientation) {
+                        case 2: ctx.transform(-1, 0, 0, 1, width, 0); break;
+                        case 3: ctx.transform(-1, 0, 0, -1, width, height); break;
+                        case 4: ctx.transform(1, 0, 0, -1, 0, height); break;
+                        case 5: ctx.transform(0, 1, 1, 0, 0, 0); break;
+                        case 6: ctx.transform(0, 1, -1, 0, height, 0); break;
+                        case 7: ctx.transform(0, -1, -1, 0, height, width); break;
+                        case 8: ctx.transform(0, -1, 1, 0, 0, width); break;
+                        default: ctx.transform(1, 0, 0, 1, 0, 0);
+                    }
+                    
+                    ctx.drawImage(img, 0, 0);
+                    resolve(canvas.toDataURL());
+                };
+                img.onerror = reject;
+                img.src = e.target.result;
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    }
+
+    // --- 🌟 [수정됨] 파일 변경 핸들러 ---
+    async function handleFileChange(event) {
+        const target = event.target;
+        if (target.classList.contains('photo-input')) {
+            const file = target.files[0];
+            if (!file) return;
+
+            currentCropInfo.row = target.closest('.log-row');
+            currentCropInfo.type = target.dataset.type;
+            currentCropInfo.file = file;
+
+            showLoader(true);
+            try {
+                // EXIF 방향이 보정된 이미지 URL을 가져옴
+                const correctlyOrientedImageSrc = await getCorrectlyOrientedImage(file);
+                
+                const cropModal = document.getElementById('crop-modal');
+                const imageToCrop = document.getElementById('image-to-crop');
+                
+                imageToCrop.src = correctlyOrientedImageSrc;
+                cropModal.style.display = 'block';
+
+                if (cropper) {
+                    cropper.destroy();
+                }
+
+                // Cropper.js 옵션 수정 (모바일 안정성 향상)
+                cropper = new Cropper(imageToCrop, {
+                    viewMode: 1,
+                    dragMode: 'move',
+                    background: false,
+                    responsive: true,
+                    restore: false,
+                    checkOrientation: false, // 수동으로 방향을 처리했으므로 자동 체크 비활성화
+                    autoCropArea: 0.8,
+                });
+            } catch (error) {
+                console.error("이미지 방향 처리 중 오류:", error);
+                alert("이미지를 처리하는 데 실패했습니다.");
+            } finally {
+                showLoader(false);
+            }
+        }
+    }
+    
+    // --- 이하 함수들은 이전 코드와 거의 동일 ---
+
+    function handleTableClick(event) {
+        const target = event.target;
+        const row = target.closest('.log-row');
+        if (!row) return;
+        if (target.classList.contains('custom-file-upload') && !target.classList.contains('btn-disabled')) {
+            target.nextElementSibling.click();
+        } else if (target.classList.contains('thumbnail')) {
+            modal.style.display = 'block';
+            modalImage.src = target.src;
+        } else if (target.classList.contains('edit-row-btn')) {
+            toggleRowEditMode(row, target);
+        } else if (target.classList.contains('delete-row-btn')) {
+            deleteRow(row);
+        } else if (target.classList.contains('toggle-btn') && row.classList.contains('completed')) {
+            row.classList.toggle('expanded');
+            target.textContent = row.classList.contains('expanded') ? '−' : '+';
+            saveTableData();
+        }
+    }
+
+    function handleCellInput(event) {
+        const target = event.target;
+        if (target.isContentEditable) {
+            const currentRow = target.closest('.log-row');
+            if (target.classList.contains('mileage')) {
+                updateDistance(currentRow);
+            } else {
                 saveTableData();
             }
         }
+    }
 
-        function handleFileChange(event) {
-            const target = event.target;
-            if (target.classList.contains('photo-input')) {
-                const file = target.files[0];
-                if (!file) return;
-                currentCropInfo.row = target.closest('.log-row');
-                currentCropInfo.type = target.dataset.type;
-                currentCropInfo.file = file;
-
-                const cropModal = document.getElementById('crop-modal');
-                const imageToCrop = document.getElementById('image-to-crop');
-                const reader = new FileReader();
-
-                reader.onload = function (e) {
-                    imageToCrop.src = e.target.result;
-                    cropModal.style.display = 'block';
-                    if (cropper) {
-                        cropper.destroy();
-                    }
-                    cropper = new Cropper(imageToCrop, {
-                        viewMode: 1,
-                        dragMode: 'move',
-                        background: false,
-                        autoCropArea: 0.8,
-                    });
-                };
-                reader.readAsDataURL(file);
+    async function processImage(croppedFile, type, row) {
+        showLoader(true, true);
+        try {
+            const exifData = await getExifData(currentCropInfo.file);
+            await updateTableFromExif(exifData, type, row);
+            const compressedImageDataUrl = await compressImage(croppedFile);
+            const photoCell = row.querySelector(`.photo-cell.${type}-photo-cell`);
+            photoCell.innerHTML = '';
+            const thumbnail = document.createElement('img');
+            thumbnail.src = compressedImageDataUrl;
+            thumbnail.className = 'thumbnail';
+            photoCell.appendChild(thumbnail);
+            photoCell.dataset.filename = currentCropInfo.file.name;
+            photoCell.dataset.imageDataUrl = compressedImageDataUrl;
+            row.querySelector(`input[data-type="${type}"]`).previousElementSibling.classList.add('btn-disabled');
+            const ocrPromise = recognizeMileage(croppedFile);
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('OCR 시간 초과 (15초)')), 15000));
+            const mileage = await Promise.race([ocrPromise, timeoutPromise]);
+            const mileageCell = row.querySelector(`.mileage.${type}-mileage`);
+            if (mileage) {
+                mileageCell.textContent = mileage;
+            } else {
+                alert('주행거리를 인식하지 못했습니다. 직접 입력해주세요.');
+                mileageCell.textContent = '';
             }
+            updateDistance(row);
+        } catch (error) {
+            console.error('이미지 처리 중 오류 발생:', error);
+            alert(error.message);
+        } finally {
+            showLoader(false);
+            saveTableData();
         }
+    }
 
-        function handleCellInput(event) {
-            const target = event.target;
-            if (target.isContentEditable) {
-                const currentRow = target.closest('.log-row');
-                if (target.classList.contains('mileage')) {
-                    updateDistance(currentRow);
-                } else {
+    async function updateTableFromExif(exifData, type, row) {
+        let dateToUse;
+        if (exifData && exifData.dateTime) {
+            let formattedString = exifData.dateTime.replace(' ', 'T').replace(/:/g, (m, o) => o < 10 ? '-' : m);
+            dateToUse = new Date(formattedString);
+        } else {
+            dateToUse = new Date();
+        }
+        if (isNaN(dateToUse.getTime())) { dateToUse = new Date(); }
+        const year = dateToUse.getFullYear(), month = dateToUse.getMonth() + 1, day = dateToUse.getDate();
+        const displayDate = `${month}/${day}`, fullDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const formattedTime = `${String(dateToUse.getHours()).padStart(2, '0')}:${String(dateToUse.getMinutes()).padStart(2, '0')}`;
+        if (type === 'start') {
+            const runDateCell = row.querySelector('.run-date');
+            runDateCell.textContent = displayDate;
+            runDateCell.dataset.fullDate = fullDate;
+            row.querySelector('.start-time').textContent = formattedTime;
+        } else {
+            row.querySelector('.end-time').textContent = formattedTime;
+        }
+        if (exifData && exifData.gpsLatitude && exifData.gpsLongitude) {
+            const address = await getAddressFromCoordinates(exifData.gpsLatitude, exifData.gpsLongitude);
+            row.querySelector(`.${type}-location`).textContent = address;
+        } else {
+            row.querySelector(`.${type}-location`).textContent = '위치 정보 없음';
+        }
+    }
+
+    function updateDistance(row) {
+        const startMileage = parseFloat(row.querySelector('.start-mileage').textContent.replace(/,/g, ''));
+        const endMileage = parseFloat(row.querySelector('.end-mileage').textContent.replace(/,/g, ''));
+        const distanceCell = row.querySelector('.distance');
+        if (!isNaN(startMileage) && !isNaN(endMileage) && endMileage >= startMileage) {
+            distanceCell.textContent = Math.round(endMileage - startMileage).toLocaleString();
+            if (row.dataset.completed === 'false') {
+                const rowNum = row.querySelector('.row-number span').textContent;
+                if (confirm(`No.${rowNum} 운행을 완료하고 저장하시겠습니까?`)) {
+                    row.dataset.completed = 'true';
+                    row.classList.add('completed');
+                    row.querySelector('.toggle-btn').style.display = 'inline-block';
+                    if (row === tableBody.lastElementChild) {
+                        addNewRow();
+                        updateRowNumbers();
+                    }
                     saveTableData();
                 }
             }
+        } else {
+            distanceCell.textContent = '';
         }
+    }
 
-        async function processImage(croppedFile, type, row) {
-            showLoader(true, true);
-            try {
-                // EXIF 정보는 원본 파일에서 추출
-                const exifData = await getExifData(currentCropInfo.file);
-                await updateTableFromExif(exifData, type, row);
+    function addNewRow(rowData = {}) {
+        const newRow = document.createElement('tr');
+        newRow.className = 'log-row';
+        if (rowData.completed === 'true') { newRow.classList.add('completed'); }
+        if (rowData.expanded === true) { newRow.classList.add('expanded'); }
+        newRow.dataset.completed = rowData.completed || 'false';
+        const startBtnClass = rowData.startPhotoFile ? 'custom-file-upload btn-disabled' : 'custom-file-upload';
+        const endBtnClass = rowData.endPhotoFile ? 'custom-file-upload btn-disabled' : 'custom-file-upload';
+        const toggleBtnDisplay = rowData.completed === 'true' ? 'inline-block' : 'none';
+        const toggleBtnText = rowData.expanded ? '−' : '+';
+        const startThumbHTML = rowData.startImageDataUrl ? `<img src="${rowData.startImageDataUrl}" class="thumbnail">` : '';
+        const endThumbHTML = rowData.endImageDataUrl ? `<img src="${rowData.endImageDataUrl}" class="thumbnail">` : '';
+        newRow.innerHTML = `
+            <td class="row-number" data-label="No."><span></span><button class="toggle-btn" style="display: ${toggleBtnDisplay};">${toggleBtnText}</button></td>
+            <td data-label="출발촬영"><label class="${startBtnClass}">📸 출발</label><input class="photo-input" data-type="start" type="file" accept="image/*" capture="environment"></td>
+            <td data-label="도착촬영"><label class="${endBtnClass}">📸 도착</label><input class="photo-input" data-type="end" type="file" accept="image/*" capture="environment"></td>
+            <td class="run-date editable-cell" data-label="운행 일자" data-full-date="${rowData.fullDate || ''}">${rowData.displayDate || ''}</td>
+            <td class="start-location editable-cell" data-label="출발지">${rowData.startLocation || ''}</td>
+            <td class="end-location editable-cell" data-label="도착지">${rowData.endLocation || ''}</td>
+            <td class="start-time editable-cell" data-label="출발시간(H)">${rowData.startTime || ''}</td>
+            <td class="end-time editable-cell" data-label="도착시간(H)">${rowData.endTime || ''}</td>
+            <td class="mileage start-mileage" contenteditable="true" data-label="출발(km)">${rowData.startMileage || ''}</td>
+            <td class="mileage end-mileage" contenteditable="true" data-label="도착(km)">${rowData.endMileage || ''}</td>
+            <td class="distance" data-label="주행거리(km)">${rowData.distance || ''}</td>
+            <td contenteditable="true" data-label="비고">${rowData.remarks || ''}</td>
+            <td class="photo-cell start-photo-cell" data-label="출발사진" data-filename="${rowData.startPhotoFile || ''}" data-image-data-url="${rowData.startImageDataUrl || ''}">${startThumbHTML}</td>
+            <td class="photo-cell end-photo-cell" data-label="도착사진" data-filename="${rowData.endPhotoFile || ''}" data-image-data-url="${rowData.endImageDataUrl || ''}">${endThumbHTML}</td>
+            <td data-label="관리"><button class="action-btn edit-row-btn">수정</button><button class="action-btn delete-row-btn">삭제</button></td>
+        `;
+        tableBody.appendChild(newRow);
+    }
 
-                // 썸네일과 OCR은 잘린 파일로 처리
-                const compressedImageDataUrl = await compressImage(croppedFile);
-                const photoCell = row.querySelector(`.photo-cell.${type}-photo-cell`);
-                photoCell.innerHTML = '';
-                const thumbnail = document.createElement('img');
-                thumbnail.src = compressedImageDataUrl;
-                thumbnail.className = 'thumbnail';
-                photoCell.appendChild(thumbnail);
-                photoCell.dataset.filename = currentCropInfo.file.name;
-                photoCell.dataset.imageDataUrl = compressedImageDataUrl;
-                row.querySelector(`input[data-type="${type}"]`).previousElementSibling.classList.add('btn-disabled');
-
-                const ocrPromise = recognizeMileage(croppedFile);
-                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('OCR 시간 초과 (15초)')), 15000));
-                
-                const mileage = await Promise.race([ocrPromise, timeoutPromise]);
-                
-                const mileageCell = row.querySelector(`.mileage.${type}-mileage`);
-                if (mileage) {
-                    mileageCell.textContent = mileage;
-                } else {
-                    alert('주행거리를 인식하지 못했습니다. 직접 입력해주세요.');
-                    mileageCell.textContent = '';
-                }
-                updateDistance(row);
-            } catch (error) {
-                console.error('이미지 처리 중 오류 발생:', error);
-                alert(error.message);
-            } finally {
-                showLoader(false);
-                saveTableData();
-            }
+    function deleteRow(row) {
+        if (confirm('이 행을 정말로 삭제하시겠습니까?')) {
+            const isLastRow = tableBody.children.length <= 1;
+            row.remove();
+            if (isLastRow) { addNewRow(); }
+            updateRowNumbers();
+            saveTableData();
         }
+    }
 
-        async function updateTableFromExif(exifData, type, row) {
-            let dateToUse;
-            if (exifData && exifData.dateTime) {
-                let formattedString = exifData.dateTime.replace(' ', 'T').replace(/:/g, (m, o) => o < 10 ? '-' : m);
-                dateToUse = new Date(formattedString);
-            } else {
-                dateToUse = new Date();
+    function updateRowNumbers() {
+        const rows = tableBody.querySelectorAll('.log-row');
+        rows.forEach((row, index) => {
+            row.querySelector('.row-number span').textContent = index + 1;
+        });
+    }
+
+    function toggleRowEditMode(row, button) {
+        const isEditing = !row.classList.contains('is-editing');
+        row.classList.toggle('is-editing', isEditing);
+        button.textContent = isEditing ? '완료' : '수정';
+        button.classList.toggle('editing', isEditing);
+        const cellsToEdit = row.querySelectorAll('.editable-cell');
+        cellsToEdit.forEach(cell => {
+            cell.contentEditable = isEditing;
+        });
+        if (!isEditing) {
+            const runDateCell = row.querySelector('.run-date');
+            const dateParts = runDateCell.textContent.split('/');
+            if (dateParts.length === 2) {
+                const yearGuess = new Date().getFullYear();
+                const month = String(dateParts[0]).padStart(2, '0');
+                const day = String(dateParts[1]).padStart(2, '0');
+                runDateCell.dataset.fullDate = `${yearGuess}-${month}-${day}`;
             }
-            if (isNaN(dateToUse.getTime())) { dateToUse = new Date(); }
-            const year = dateToUse.getFullYear(), month = dateToUse.getMonth() + 1, day = dateToUse.getDate();
-            const displayDate = `${month}/${day}`, fullDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-            const formattedTime = `${String(dateToUse.getHours()).padStart(2, '0')}:${String(dateToUse.getMinutes()).padStart(2, '0')}`;
-            
-            if (type === 'start') {
+            saveTableData();
+        }
+    }
+
+    function saveTableData() {
+        try {
+            const rows = document.querySelectorAll('#log-body .log-row');
+            const dataToSave = Array.from(rows).map(row => {
                 const runDateCell = row.querySelector('.run-date');
-                runDateCell.textContent = displayDate;
-                runDateCell.dataset.fullDate = fullDate;
-                row.querySelector('.start-time').textContent = formattedTime;
-            } else {
-                row.querySelector('.end-time').textContent = formattedTime;
-            }
-            if (exifData && exifData.gpsLatitude && exifData.gpsLongitude) {
-                const address = await getAddressFromCoordinates(exifData.gpsLatitude, exifData.gpsLongitude);
-                row.querySelector(`.${type}-location`).textContent = address;
-            } else {
-                row.querySelector(`.${type}-location`).textContent = '위치 정보 없음';
-            }
-        }
-        
-        function updateDistance(row) {
-            const startMileage = parseFloat(row.querySelector('.start-mileage').textContent.replace(/,/g, ''));
-            const endMileage = parseFloat(row.querySelector('.end-mileage').textContent.replace(/,/g, ''));
-            const distanceCell = row.querySelector('.distance');
-            if (!isNaN(startMileage) && !isNaN(endMileage) && endMileage >= startMileage) {
-                distanceCell.textContent = Math.round(endMileage - startMileage).toLocaleString();
-                if (row.dataset.completed === 'false') {
-                    const rowNum = row.querySelector('.row-number span').textContent;
-                    if (confirm(`No.${rowNum} 운행을 완료하고 저장하시겠습니까?`)) {
-                        row.dataset.completed = 'true';
-                        row.classList.add('completed');
-                        row.querySelector('.toggle-btn').style.display = 'inline-block';
-                        if (row === tableBody.lastElementChild) {
-                            addNewRow();
-                            updateRowNumbers();
-                        }
-                        saveTableData();
-                    }
-                }
-            } else {
-                distanceCell.textContent = '';
-            }
-        }
-        
-        function addNewRow(rowData = {}) {
-            const newRow = document.createElement('tr');
-            newRow.className = 'log-row';
-            if (rowData.completed === 'true') { newRow.classList.add('completed'); }
-            if (rowData.expanded === true) { newRow.classList.add('expanded'); }
-            newRow.dataset.completed = rowData.completed || 'false';
-            
-            const startBtnClass = rowData.startPhotoFile ? 'custom-file-upload btn-disabled' : 'custom-file-upload';
-            const endBtnClass = rowData.endPhotoFile ? 'custom-file-upload btn-disabled' : 'custom-file-upload';
-            const toggleBtnDisplay = rowData.completed === 'true' ? 'inline-block' : 'none';
-            const toggleBtnText = rowData.expanded ? '−' : '+';
-            const startThumbHTML = rowData.startImageDataUrl ? `<img src="${rowData.startImageDataUrl}" class="thumbnail">` : '';
-            const endThumbHTML = rowData.endImageDataUrl ? `<img src="${rowData.endImageDataUrl}" class="thumbnail">` : '';
-            newRow.innerHTML = `
-                <td class="row-number" data-label="No."><span></span><button class="toggle-btn" style="display: ${toggleBtnDisplay};">${toggleBtnText}</button></td>
-                <td data-label="출발촬영"><label class="${startBtnClass}">📸 출발</label><input class="photo-input" data-type="start" type="file" accept="image/*" capture="environment"></td>
-                <td data-label="도착촬영"><label class="${endBtnClass}">📸 도착</label><input class="photo-input" data-type="end" type="file" accept="image/*" capture="environment"></td>
-                <td class="run-date editable-cell" data-label="운행 일자" data-full-date="${rowData.fullDate || ''}">${rowData.displayDate || ''}</td>
-                <td class="start-location editable-cell" data-label="출발지">${rowData.startLocation || ''}</td>
-                <td class="end-location editable-cell" data-label="도착지">${rowData.endLocation || ''}</td>
-                <td class="start-time editable-cell" data-label="출발시간(H)">${rowData.startTime || ''}</td>
-                <td class="end-time editable-cell" data-label="도착시간(H)">${rowData.endTime || ''}</td>
-                <td class="mileage start-mileage" contenteditable="true" data-label="출발(km)">${rowData.startMileage || ''}</td>
-                <td class="mileage end-mileage" contenteditable="true" data-label="도착(km)">${rowData.endMileage || ''}</td>
-                <td class="distance" data-label="주행거리(km)">${rowData.distance || ''}</td>
-                <td contenteditable="true" data-label="비고">${rowData.remarks || ''}</td>
-                <td class="photo-cell start-photo-cell" data-label="출발사진" data-filename="${rowData.startPhotoFile || ''}" data-image-data-url="${rowData.startImageDataUrl || ''}">${startThumbHTML}</td>
-                <td class="photo-cell end-photo-cell" data-label="도착사진" data-filename="${rowData.endPhotoFile || ''}" data-image-data-url="${rowData.endImageDataUrl || ''}">${endThumbHTML}</td>
-                <td data-label="관리"><button class="action-btn edit-row-btn">수정</button><button class="action-btn delete-row-btn">삭제</button></td>
-            `;
-            tableBody.appendChild(newRow);
-        }
-
-        function deleteRow(row) {
-            if (confirm('이 행을 정말로 삭제하시겠습니까?')) {
-                const isLastRow = tableBody.children.length <= 1;
-                row.remove();
-                if (isLastRow) { addNewRow(); }
-                updateRowNumbers();
-                saveTableData();
-            }
-        }
-        
-        function updateRowNumbers() {
-            const rows = tableBody.querySelectorAll('.log-row');
-            rows.forEach((row, index) => {
-                row.querySelector('.row-number span').textContent = index + 1;
-            });
-        }
-        
-        function toggleRowEditMode(row, button) {
-            const isEditing = !row.classList.contains('is-editing');
-            row.classList.toggle('is-editing', isEditing);
-            button.textContent = isEditing ? '완료' : '수정';
-            button.classList.toggle('editing', isEditing);
-            const cellsToEdit = row.querySelectorAll('.editable-cell');
-            cellsToEdit.forEach(cell => {
-                cell.contentEditable = isEditing;
-            });
-            if (!isEditing) {
-                const runDateCell = row.querySelector('.run-date');
-                const dateParts = runDateCell.textContent.split('/');
-                if (dateParts.length === 2) {
-                    const yearGuess = new Date().getFullYear();
-                    const month = String(dateParts[0]).padStart(2, '0');
-                    const day = String(dateParts[1]).padStart(2, '0');
-                    runDateCell.dataset.fullDate = `${yearGuess}-${month}-${day}`;
-                }
-                saveTableData();
-            }
-        }
-        
-        function saveTableData() {
-            try {
-                const rows = document.querySelectorAll('#log-body .log-row');
-                const dataToSave = Array.from(rows).map(row => {
-                    const runDateCell = row.querySelector('.run-date');
-                    const startPhotoCell = row.querySelector('.start-photo-cell');
-                    const endPhotoCell = row.querySelector('.end-photo-cell');
-                    return {
-                        completed: row.dataset.completed,
-                        expanded: row.classList.contains('expanded'),
-                        displayDate: runDateCell.textContent,
-                        fullDate: runDateCell.dataset.fullDate,
-                        startLocation: row.querySelector('.start-location').textContent,
-                        endLocation: row.querySelector('.end-location').textContent,
-                        startTime: row.querySelector('.start-time').textContent,
-                        endTime: row.querySelector('.end-time').textContent,
-                        startMileage: row.querySelector('.start-mileage').textContent,
-                        endMileage: row.querySelector('.end-mileage').textContent,
-                        distance: row.querySelector('.distance').textContent,
-                        remarks: row.querySelector('[data-label="비고"]').textContent,
-                        startPhotoFile: startPhotoCell.dataset.filename,
-                        endPhotoFile: endPhotoCell.dataset.filename,
-                        startImageDataUrl: startPhotoCell.dataset.imageDataUrl,
-                        endImageDataUrl: endPhotoCell.dataset.imageDataUrl
-                    };
-                });
-                localStorage.setItem('drivingLogData', JSON.stringify(dataToSave));
-            } catch (e) {
-                console.error("데이터 저장 중 오류 발생:", e);
-                alert("데이터 저장에 실패했습니다. 브라우저 저장 공간이 부족할 수 있습니다.");
-            }
-        }
-
-        function loadTableData() {
-            const savedData = localStorage.getItem('drivingLogData');
-            if (savedData) {
-                try {
-                    const dataArray = JSON.parse(savedData);
-                    if (dataArray && dataArray.length > 0) {
-                        tableBody.innerHTML = '';
-                        dataArray.forEach(rowData => { addNewRow(rowData); });
-                        updateRowNumbers();
-                        return;
-                    }
-                } catch (e) {
-                    console.error("저장된 데이터 파싱 오류:", e);
-                    localStorage.removeItem('drivingLogData');
-                }
-            }
-            addNewRow();
-        }
-
-        function downloadExcel() {
-            const table = document.getElementById('log-table').cloneNode(true);
-            const headerCells = Array.from(table.tHead.rows[0].cells);
-            const manageHeaderIndex = headerCells.findIndex(th => th.textContent === '관리');
-            if (manageHeaderIndex > -1) {
-                table.tHead.rows[0].deleteCell(manageHeaderIndex);
-                Array.from(table.tBodies[0].rows).forEach(row => { row.deleteCell(manageHeaderIndex); });
-            }
-            table.querySelectorAll('.log-row').forEach(row => {
-                row.querySelector('.row-number').innerHTML = row.querySelector('.row-number span').textContent;
-                const runDateCell = row.querySelector('.run-date');
-                if (runDateCell) runDateCell.textContent = runDateCell.dataset.fullDate || runDateCell.textContent;
-                const startCell = row.querySelector('.start-photo-cell');
-                const endCell = row.querySelector('.end-photo-cell');
-                if (startCell) startCell.innerHTML = startCell.dataset.filename || '';
-                if (endCell) endCell.innerHTML = endCell.dataset.filename || '';
-            });
-            const wb = XLSX.utils.table_to_book(table, { sheet: "운행일지" });
-            XLSX.writeFile(wb, '운행일지.xlsx');
-        }
-        
-        function getExifData(file) {
-            return new Promise((resolve) => {
-                let resolved = false;
-                const timeoutId = setTimeout(() => { if (!resolved) { console.warn("EXIF 읽기 시간 초과"); resolved = true; resolve(null); } }, 2000);
-                try {
-                    EXIF.getData(file, function() {
-                        if (resolved) return;
-                        clearTimeout(timeoutId);
-                        const dt = EXIF.getTag(this, "DateTimeOriginal"), gLatR = EXIF.getTag(this, "GPSLatitudeRef"), gLat = EXIF.getTag(this, "GPSLatitude"), gLonR = EXIF.getTag(this, "GPSLongitudeRef"), gLon = EXIF.getTag(this, "GPSLongitude");
-                        let lat = null, lon = null;
-                        if (gLat && gLon) { lat = convertDMSToDD(gLat, gLatR); lon = convertDMSToDD(gLon, gLonR); }
-                        resolved = true;
-                        resolve({ dateTime: dt || null, gpsLatitude: lat, gpsLongitude: lon });
-                    });
-                } catch (error) { if (resolved) return; clearTimeout(timeoutId); console.error("EXIF 처리 에러:", error); resolve(null); }
-            });
-        }
-        
-        function compressImage(file, maxWidth = 1024, quality = 0.8) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = (e) => {
-                    const img = new Image();
-                    img.onload = () => {
-                        const canvas = document.createElement('canvas');
-                        let { width, height } = img;
-                        if (width > maxWidth) {
-                            height = (maxWidth / width) * height;
-                            width = maxWidth;
-                        }
-                        canvas.width = width;
-                        canvas.height = height;
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0, width, height);
-                        const dataUrl = canvas.toDataURL('image/jpeg', quality);
-                        resolve(dataUrl);
-                    };
-                    img.onerror = reject;
-                    img.src = e.target.result;
+                const startPhotoCell = row.querySelector('.start-photo-cell');
+                const endPhotoCell = row.querySelector('.end-photo-cell');
+                return {
+                    completed: row.dataset.completed,
+                    expanded: row.classList.contains('expanded'),
+                    displayDate: runDateCell.textContent,
+                    fullDate: runDateCell.dataset.fullDate,
+                    startLocation: row.querySelector('.start-location').textContent,
+                    endLocation: row.querySelector('.end-location').textContent,
+                    startTime: row.querySelector('.start-time').textContent,
+                    endTime: row.querySelector('.end-time').textContent,
+                    startMileage: row.querySelector('.start-mileage').textContent,
+                    endMileage: row.querySelector('.end-mileage').textContent,
+                    distance: row.querySelector('.distance').textContent,
+                    remarks: row.querySelector('[data-label="비고"]').textContent,
+                    startPhotoFile: startPhotoCell.dataset.filename,
+                    endPhotoFile: endPhotoCell.dataset.filename,
+                    startImageDataUrl: startPhotoCell.dataset.imageDataUrl,
+                    endImageDataUrl: endPhotoCell.dataset.imageDataUrl
                 };
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
             });
+            localStorage.setItem('drivingLogData', JSON.stringify(dataToSave));
+        } catch (e) {
+            console.error("데이터 저장 중 오류 발생:", e);
+            alert("데이터 저장에 실패했습니다. 브라우저 저장 공간이 부족할 수 있습니다.");
         }
-        
-        async function recognizeMileage(imageSource) {
-            const worker = await Tesseract.createWorker('kor+eng');
-            try {
-                await worker.setParameters({
-                    tessedit_char_whitelist: '0123456789',
-                });
-                const { data: { text } } = await worker.recognize(imageSource);
-                const mileage = text.replace(/\D/g, ''); 
-                if (mileage && mileage.length >= 5) {
-                    return mileage;
-                }
-                console.log("OCR 결과:", text);
-                return null;
-            } catch (error) { 
-                console.error("OCR 처리 중 오류:", error); 
-                return null; 
-            } finally { 
-                await worker.terminate(); 
-            }
-        }
-        
-        function convertDMSToDD(dms, ref) {
-            if (!dms || dms.length < 3) return 0;
-            const dd = dms[0] + dms[1] / 60 + dms[2] / 3600;
-            return (ref === "S" || ref === "W") ? -dd : dd;
-        }
+    }
 
-        function calculateDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371e3;
-            const φ1 = lat1 * Math.PI/180, φ2 = lat2 * Math.PI/180;
-            const Δφ = (lat2-lat1) * Math.PI/180, Δλ = (lon2-lon1) * Math.PI/180;
-            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) * Math.sin(Δλ/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            return R * c;
-        }
-
-        async function getAddressFromCoordinates(lat, lon) {
-            for (const center of serviceCenters) {
-                const searchRadius = center.radius || 500;
-                const distance = calculateDistance(lat, lon, center.lat, center.lon);
-                if (distance <= searchRadius) {
-                    return center.name;
-                }
-            }
-            const GOOGLE_API_KEY = 'AIzaSyDmq6ArU2ueu7jrOjlBEFJBlF3C_CfrzWI';
-            if (GOOGLE_API_KEY.includes('발급받은')) return "API 키 필요";
-            const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lon}&key=${GOOGLE_API_KEY}&language=ko`;
+    function loadTableData() {
+        const savedData = localStorage.getItem('drivingLogData');
+        if (savedData) {
             try {
-                const response = await fetch(url);
-                const data = await response.json();
-                if (data.status === 'OK' && data.results.length > 0) {
-                    const comps = data.results[0].address_components;
-                    let city = '', gu = '', dong = '';
-                    for (const c of comps) {
-                        if (c.types.includes("locality")) city = c.long_name;
-                        if (c.types.includes("sublocality_level_1")) gu = c.long_name;
-                        if (c.types.includes("sublocality_level_2")) dong = c.long_name;
-                    }
-                    return `${gu || city} ${dong}`.trim() || '주소 정보 없음';
+                const dataArray = JSON.parse(savedData);
+                if (dataArray && dataArray.length > 0) {
+                    tableBody.innerHTML = '';
+                    dataArray.forEach(rowData => { addNewRow(rowData); });
+                    updateRowNumbers();
+                    return;
                 }
-                return "주소 정보 없음";
-            } catch (error) { return "주소 조회 실패"; }
-        }
-        
-        function showLoader(show, showProgress = false) {
-            const loader = document.getElementById('loader');
-            const progressBarContainer = loader.querySelector('.progress-bar-container');
-            const progressBar = loader.querySelector('.progress-bar');
-            const loaderText = loader.querySelector('#loader-text');
-            if (show) {
-                loader.style.display = 'flex';
-                if (showProgress) {
-                    loaderText.textContent = '계기판 주행거리를 확인합니다... (15초)';
-                    progressBarContainer.style.display = 'block';
-                    progressBar.classList.remove('animated');
-                    void progressBar.offsetWidth;
-                    progressBar.classList.add('animated');
-                } else {
-                    loaderText.textContent = '처리 중입니다...';
-                    progressBarContainer.style.display = 'none';
-                }
-            } else {
-                loader.style.display = 'none';
+            } catch (e) {
+                console.error("저장된 데이터 파싱 오류:", e);
+                localStorage.removeItem('drivingLogData');
             }
         }
-        
-        loadTableData();
+        addNewRow();
         updateRowNumbers();
-    });
-    </script>
-</body>
-</html>
+    }
+
+    function downloadExcel() {
+        const table = document.getElementById('log-table').cloneNode(true);
+        const headerCells = Array.from(table.tHead.rows[0].cells);
+        const manageHeaderIndex = headerCells.findIndex(th => th.textContent === '관리');
+        if (manageHeaderIndex > -1) {
+            table.tHead.rows[0].deleteCell(manageHeaderIndex);
+            Array.from(table.tBodies[0].rows).forEach(row => { row.deleteCell(manageHeaderIndex); });
+        }
+        table.querySelectorAll('.log-row').forEach(row => {
+            row.querySelector('.row-number').innerHTML = row.querySelector('.row-number span').textContent;
+            const runDateCell = row.querySelector('.run-date');
+            if (runDateCell) runDateCell.textContent = runDateCell.dataset.fullDate || runDateCell.textContent;
+            const startCell = row.querySelector('.start-photo-cell');
+            const endCell = row.querySelector('.end-photo-cell');
+            if (startCell) startCell.innerHTML = startCell.dataset.filename || '';
+            if (endCell) endCell.innerHTML = endCell.dataset.filename || '';
+        });
+        const wb = XLSX.utils.table_to_book(table, { sheet: "운행일지" });
+        XLSX.writeFile(wb, '운행일지.xlsx');
+    }
+
+    function getExifData(file) {
+        return new Promise((resolve) => {
+            let resolved = false;
+            const timeoutId = setTimeout(() => { if (!resolved) { console.warn("EXIF 읽기 시간 초과"); resolved = true; resolve(null); } }, 2000);
+            try {
+                EXIF.getData(file, function() {
+                    if (resolved) return;
+                    clearTimeout(timeoutId);
+                    const dt = EXIF.getTag(this, "DateTimeOriginal"), gLatR = EXIF.getTag(this, "GPSLatitudeRef"), gLat = EXIF.getTag(this, "GPSLatitude"), gLonR = EXIF.getTag(this, "GPSLongitudeRef"), gLon = EXIF.getTag(this, "GPSLongitude");
+                    let lat = null, lon = null;
+                    if (gLat && gLon) { lat = convertDMSToDD(gLat, gLatR); lon = convertDMSToDD(gLon, gLonR); }
+                    resolved = true;
+                    resolve({ dateTime: dt || null, gpsLatitude: lat, gpsLongitude: lon });
+                });
+            } catch (error) { if (resolved) return; clearTimeout(timeoutId); console.error("EXIF 처리 에러:", error); resolve(null); }
+        });
+    }
+
+    function compressImage(file, maxWidth = 1024, quality = 0.8) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let { width, height } = img;
+                    if (width > maxWidth) {
+                        height = (maxWidth / width) * height;
+                        width = maxWidth;
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                    resolve(dataUrl);
+                };
+                img.onerror = reject;
+                img.src = (typeof file === 'string') ? file : e.target.result;
+            };
+            reader.onerror = reject;
+            if (typeof file === 'string') {
+                reader.onload({ target: { result: file }});
+            } else {
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+
+    async function recognizeMileage(imageSource) {
+        const worker = await Tesseract.createWorker('kor+eng');
+        try {
+            await worker.setParameters({
+                tessedit_char_whitelist: '0123456789',
+            });
+            const { data: { text } } = await worker.recognize(imageSource);
+            const mileage = text.replace(/\D/g, ''); 
+            if (mileage && mileage.length >= 4) { // 더 짧은 숫자도 인식하도록 5->4로 변경
+                return mileage;
+            }
+            console.log("OCR 결과:", text);
+            return null;
+        } catch (error) { 
+            console.error("OCR 처리 중 오류:", error); 
+            return null; 
+        } finally { 
+            await worker.terminate(); 
+        }
+    }
+
+    function convertDMSToDD(dms, ref) {
+        if (!dms || dms.length < 3) return 0;
+        const dd = dms[0] + dms[1] / 60 + dms[2] / 3600;
+        return (ref === "S" || ref === "W") ? -dd : dd;
+    }
+
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371e3;
+        const φ1 = lat1 * Math.PI/180, φ2 = lat2 * Math.PI/180;
+        const Δφ = (lat2-lat1) * Math.PI/180, Δλ = (lon2-lon1) * Math.PI/180;
+        const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) * Math.sin(Δλ/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        return R * c;
+    }
+
+    async function getAddressFromCoordinates(lat, lon) {
+        for (const center of serviceCenters) {
+            const searchRadius = center.radius || 500;
+            const distance = calculateDistance(lat, lon, center.lat, center.lon);
+            if (distance <= searchRadius) {
+                return center.name;
+            }
+        }
+        const GOOGLE_API_KEY = 'AIzaSyDmq6ArU2ueu7jrOjlBEFJBlF3C_CfrzWI';
+        if (GOOGLE_API_KEY.includes('발급받은')) return "API 키 필요";
+        const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lon}&key=${GOOGLE_API_KEY}&language=ko`;
+        try {
+            const response = await fetch(url);
+            const data = await response.json();
+            if (data.status === 'OK' && data.results.length > 0) {
+                const comps = data.results[0].address_components;
+                let city = '', gu = '', dong = '';
+                for (const c of comps) {
+                    if (c.types.includes("locality")) city = c.long_name;
+                    if (c.types.includes("sublocality_level_1")) gu = c.long_name;
+                    if (c.types.includes("sublocality_level_2")) dong = c.long_name;
+                }
+                return `${gu || city} ${dong}`.trim() || '주소 정보 없음';
+            }
+            return "주소 정보 없음";
+        } catch (error) { return "주소 조회 실패"; }
+    }
+
+    function showLoader(show, showProgress = false) {
+        const loader = document.getElementById('loader');
+        const progressBarContainer = loader.querySelector('.progress-bar-container');
+        const progressBar = loader.querySelector('.progress-bar');
+        const loaderText = loader.querySelector('#loader-text');
+        if (show) {
+            loader.style.display = 'flex';
+            if (showProgress) {
+                loaderText.textContent = '계기판 주행거리를 확인합니다... (15초)';
+                progressBarContainer.style.display = 'block';
+                progressBar.classList.remove('animated');
+                void progressBar.offsetWidth;
+                progressBar.classList.add('animated');
+            } else {
+                loaderText.textContent = '처리 중입니다...';
+                progressBarContainer.style.display = 'none';
+            }
+        } else {
+            loader.style.display = 'none';
+        }
+    }
+
+    loadTableData();
+});
+</script>
