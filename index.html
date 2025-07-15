@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="referrer" content="strict-origin-when-cross-origin">
-    <title>차량 운행일지 (로직 수정)</title>
+    <title>차량 운행일지 (최종 완성본)</title>
     
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚗</text></svg>">
     
@@ -111,7 +111,10 @@
         tableBody.addEventListener('click', handleTableClick);
         tableBody.addEventListener('change', handleFileChange);
         tableBody.addEventListener('input', handleCellInput);
-        addRowButton.addEventListener('click', () => { addNewRow(); updateRowNumbers(); });
+        addRowButton.addEventListener('click', () => {
+            addNewRow();
+            updateRowNumbers();
+        });
         closeModal.onclick = () => { modal.style.display = 'none'; };
         modal.onclick = (event) => { if (event.target === modal) { modal.style.display = 'none'; } };
         downloadExcelButton.addEventListener('click', downloadExcel);
@@ -159,15 +162,11 @@
                 }
             }
         }
-        
-        /**
-         * ✅ 사진 저장과 행 완료 로직 분리
-         */
+
         async function handleImage(file, type, row) {
             showLoader(true, true);
-            let compressedImageDataUrl = null;
             try {
-                compressedImageDataUrl = await compressImage(file);
+                const compressedImageDataUrl = await compressImage(file);
                 const photoCell = row.querySelector(`.photo-cell.${type}-photo-cell`);
                 photoCell.innerHTML = '';
                 const thumbnail = document.createElement('img');
@@ -198,19 +197,15 @@
                     mileageCell.textContent = '';
                 }
                 
-                // 사진 저장 여부 확인 (행 완료와 무관)
                 if (confirm(`사진을 갤러리에 저장하시겠습니까?`)) {
                     saveImageToGallery(compressedImageDataUrl, `운행기록_${mileage || file.name}.jpg`);
                 }
                 
-                updateDistance(row); // 주행거리 계산 시도
-                saveTableData(); // 현재 상태 저장
+                updateDistance(row);
+                saveTableData();
             } catch (error) {
                 console.error('이미지 처리 중 오류 발생:', error);
                 alert(error.message);
-                if (compressedImageDataUrl && confirm('OCR 처리 중 오류가 발생했습니다. 현재 사진을 갤러리에 저장하시겠습니까?')) {
-                    saveImageToGallery(compressedImageDataUrl, `운행기록_사진.jpg`);
-                }
             } finally {
                 showLoader(false);
             }
@@ -256,9 +251,6 @@
             }
         }
         
-        /**
-         * ✅ 주행거리가 계산될 때만 행 완료(접기) 및 새 행 추가
-         */
         function updateDistance(row) {
             const startMileage = parseFloat(row.querySelector('.start-mileage').textContent.replace(/,/g, ''));
             const endMileage = parseFloat(row.querySelector('.end-mileage').textContent.replace(/,/g, ''));
@@ -266,15 +258,19 @@
 
             if (!isNaN(startMileage) && !isNaN(endMileage) && endMileage >= startMileage) {
                 distanceCell.textContent = Math.round(endMileage - startMileage).toLocaleString();
+                
                 if (row.dataset.completed === 'false') {
-                    row.dataset.completed = 'true';
-                    row.classList.add('completed');
-                    row.querySelector('.toggle-btn').style.display = 'inline-block';
-                    if (row === tableBody.lastElementChild) {
-                        addNewRow();
-                        updateRowNumbers();
+                    const rowNum = row.querySelector('.row-number span').textContent;
+                    if (confirm(`No.${rowNum} 운행을 완료하고 저장하시겠습니까?`)) {
+                        row.dataset.completed = 'true';
+                        row.classList.add('completed');
+                        row.querySelector('.toggle-btn').style.display = 'inline-block';
+                        if (row === tableBody.lastElementChild) {
+                            addNewRow();
+                            updateRowNumbers();
+                        }
+                        saveTableData();
                     }
-                    saveTableData();
                 }
             } else {
                 distanceCell.textContent = '';
