@@ -460,7 +460,7 @@
         }
 
         async function getAddressFromCoordinates(lat, lon) {
-            const GOOGLE_API_KEY = '여기에_발급받은_구글_API_키를_입력하세요';
+            const GOOGLE_API_KEY = 'AIzaSyBxjQGkQvXnIKfs371_MwbxiH-xp7ZWU2U';
             if (GOOGLE_API_KEY === '여기에_발급받은_구글_API_키를_입력하세요') return "API 키 필요";
             const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lon}&key=${GOOGLE_API_KEY}&language=ko`;
             try {
