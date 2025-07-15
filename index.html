@@ -56,7 +56,9 @@
         input[type="file"] { display: none; }
         .thumbnail { max-height: 60px; max-width: 100px; width: auto; border-radius: 4px; cursor: pointer; }
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.85); }
-        .modal-content { margin: auto; display: block; max-width: 90%; max-height: 90%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+        .modal-content { margin: auto; display: block; max-width: 90%; max-height: 80%; }
+        .modal-bottom { text-align: center; padding-top: 20px; }
+        #save-to-gallery-btn { padding: 12px 25px; font-size: 16px; font-weight: bold; background-color: #007bff; color: white; border: none; border-radius: 8px; cursor: pointer; }
         .close-modal { position: absolute; top: 15px; right: 35px; color: #f1f1f1; font-size: 40px; font-weight: bold; cursor: pointer; }
         .loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.7); z-index: 2000; display: none; align-items: center; justify-content: center; flex-direction: column; }
         .progress-bar-container { width: 80%; max-width: 300px; height: 20px; background-color: #e0e0e0; border-radius: 10px; overflow: hidden; margin-top: 20px; display: none; }
@@ -95,34 +97,21 @@
         </div>
     </div>
     
-    <div id="image-modal" class="modal"><span class="close-modal">&times;</span><img class="modal-content" id="modal-image"></div>
+    <div id="image-modal" class="modal">
+        <span class="close-modal">&times;</span>
+        <img class="modal-content" id="modal-image">
+        <div class="modal-bottom">
+            <button id="save-to-gallery-btn">갤러리에 저장</button>
+        </div>
+    </div>
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
-        // ✅ 전국 LG전자 서비스센터 좌표 데이터 (일부 예시)
         const serviceCenters = [
-            { "name": "강남점", "lat": 37.4947, "lon": 127.0305 },
-            { "name": "강동점", "lat": 37.5485, "lon": 127.1471 },
-            { "name": "강북점", "lat": 37.6328, "lon": 127.0253 },
-            { "name": "강서점", "lat": 37.5601, "lon": 126.8488 },
-            { "name": "관악점", "lat": 37.4789, "lon": 126.9503 },
-            { "name": "광진점", "lat": 37.5385, "lon": 127.0827 },
-            { "name": "구로점", "lat": 37.4954, "lon": 126.8872 },
-            { "name": "금천점", "lat": 37.4526, "lon": 126.9038 },
-            { "name": "노원점", "lat": 37.6548, "lon": 127.0594 },
-            { "name": "동대문점", "lat": 37.5742, "lon": 127.0396 },
-            { "name": "동작점", "lat": 37.5080, "lon": 126.9427 },
-            { "name": "마포점", "lat": 37.5634, "lon": 126.9084 },
-            { "name": "서대문점", "lat": 37.5794, "lon": 126.9366 },
-            { "name": "서초점", "lat": 37.4836, "lon": 127.0174 },
-            { "name": "성북점", "lat": 37.5891, "lon": 127.0182 },
-            { "name": "송파점", "lat": 37.5144, "lon": 127.1058 },
-            { "name": "양천점", "lat": 37.5173, "lon": 126.8664 },
-            { "name": "영등포점", "lat": 37.5262, "lon": 126.8966 },
-            { "name": "용산점", "lat": 37.5323, "lon": 126.9644 },
-            { "name": "은평점", "lat": 37.6027, "lon": 126.9189 },
-            { "name": "중랑점", "lat": 37.6062, "lon": 127.0940 },
-            // 전국 모든 센터 데이터를 여기에 추가
+            { "name": "강남서비스센터", "lat": 37.4947, "lon": 127.0305 },
+            { "name": "오산서비스센터", "lat": 37.1513, "lon": 127.0722, "radius": 2000 },
+            { "name": "서초서비스센터", "lat": 37.4836, "lon": 127.0174 },
+            // 전국 모든 센터 데이터를 여기에 추가해야 합니다.
         ];
 
         const tableBody = document.getElementById('log-body');
@@ -132,6 +121,7 @@
         const modal = document.getElementById('image-modal');
         const modalImage = document.getElementById('modal-image');
         const closeModal = document.querySelector('.close-modal');
+        const saveToGalleryBtn = document.getElementById('save-to-gallery-btn');
 
         tableBody.addEventListener('click', handleTableClick);
         tableBody.addEventListener('change', handleFileChange);
@@ -141,7 +131,15 @@
             updateRowNumbers();
         });
         closeModal.onclick = () => { modal.style.display = 'none'; };
-        modal.onclick = (event) => { if (event.target === modal) { modal.style.display = 'none'; } };
+        modal.addEventListener('click', (event) => { if (event.target === modal) { modal.style.display = 'none'; } });
+        saveToGalleryBtn.addEventListener('click', () => {
+            const link = document.createElement('a');
+            link.href = modalImage.src;
+            link.download = `운행일지사진_${new Date().getTime()}.jpg`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        });
         downloadExcelButton.addEventListener('click', downloadExcel);
 
         function handleTableClick(event) {
@@ -190,8 +188,9 @@
 
         async function handleImage(file, type, row) {
             showLoader(true, true);
+            let compressedImageDataUrl = null;
             try {
-                const compressedImageDataUrl = await compressImage(file);
+                compressedImageDataUrl = await compressImage(file);
                 const photoCell = row.querySelector(`.photo-cell.${type}-photo-cell`);
                 photoCell.innerHTML = '';
                 const thumbnail = document.createElement('img');
@@ -217,37 +216,20 @@
                 const mileageCell = row.querySelector(`.mileage.${type}-mileage`);
                 if (mileage) {
                     mileageCell.textContent = mileage;
-                    if (confirm(`주행거리 '${mileage}'를 확인했습니다.\n이 사진을 갤러리에 저장하시겠습니까?`)) {
-                        saveImageToGallery(compressedImageDataUrl, `운행기록_${mileage}.jpg`);
-                    }
                 } else {
                     alert('계기판의 주행거리를 인식하지 못했습니다. 직접 입력해주세요.');
                     mileageCell.textContent = '';
                 }
                 updateDistance(row);
-                saveTableData();
             } catch (error) {
                 console.error('이미지 처리 중 오류 발생:', error);
                 alert(error.message);
-                if (confirm('OCR 처리 중 오류가 발생했습니다. 현재 사진을 갤러리에 저장하시겠습니까?')) {
-                    const photoCell = row.querySelector(`.photo-cell.${type}-photo-cell`);
-                    saveImageToGallery(photoCell.dataset.imageDataUrl, `운행기록_사진.jpg`);
-                }
             } finally {
                 showLoader(false);
+                saveTableData();
             }
         }
         
-        function saveImageToGallery(dataUrl, filename) {
-            if (!dataUrl) return;
-            const link = document.createElement('a');
-            link.href = dataUrl;
-            link.download = filename;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-
         async function updateTableFromExif(exifData, type, row) {
             let dateToUse;
             if (exifData && exifData.dateTime) {
@@ -382,14 +364,11 @@
             try {
                 const rows = document.querySelectorAll('#log-body .log-row');
                 const dataToSave = Array.from(rows).map(row => {
-                    const runDateCell = row.querySelector('.run-date');
-                    const startPhotoCell = row.querySelector('.start-photo-cell');
-                    const endPhotoCell = row.querySelector('.end-photo-cell');
                     return {
                         completed: row.dataset.completed,
                         expanded: row.classList.contains('expanded'),
-                        displayDate: runDateCell.textContent,
-                        fullDate: runDateCell.dataset.fullDate,
+                        displayDate: row.querySelector('.run-date').textContent,
+                        fullDate: row.querySelector('.run-date').dataset.fullDate,
                         startLocation: row.querySelector('.start-location').textContent,
                         endLocation: row.querySelector('.end-location').textContent,
                         startTime: row.querySelector('.start-time').textContent,
@@ -398,10 +377,10 @@
                         endMileage: row.querySelector('.end-mileage').textContent,
                         distance: row.querySelector('.distance').textContent,
                         remarks: row.querySelector('[data-label="비고"]').textContent,
-                        startPhotoFile: startPhotoCell.dataset.filename,
-                        endPhotoFile: endPhotoCell.dataset.filename,
-                        startImageDataUrl: startPhotoCell.dataset.imageDataUrl,
-                        endImageDataUrl: endPhotoCell.dataset.imageDataUrl
+                        startPhotoFile: row.querySelector('.start-photo-cell').dataset.filename,
+                        endPhotoFile: row.querySelector('.end-photo-cell').dataset.filename,
+                        startImageDataUrl: row.querySelector('.start-photo-cell').dataset.imageDataUrl,
+                        endImageDataUrl: row.querySelector('.end-photo-cell').dataset.imageDataUrl
                     };
                 });
                 localStorage.setItem('drivingLogData', JSON.stringify(dataToSave));
@@ -546,12 +525,25 @@
             return (ref === "S" || ref === "W") ? -dd : dd;
         }
 
-        async function getAddressFromCoordinates(lat, lon) {
-            // ✅ 여기에 LG전자 서비스센터 데이터가 포함됩니다.
-            // ...
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3;
+            const φ1 = lat1 * Math.PI/180, φ2 = lat2 * Math.PI/180;
+            const Δφ = (lat2-lat1) * Math.PI/180, Δλ = (lon2-lon1) * Math.PI/180;
+            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) * Math.sin(Δλ/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
 
-            // ✅ 여기에 서비스센터를 먼저 찾고, 없으면 구글 API를 호출하는 로직이 포함됩니다.
-            // ...
+        async function getAddressFromCoordinates(lat, lon) {
+            for (const center of serviceCenters) {
+                const searchRadius = center.radius || 50;
+                const distance = calculateDistance(lat, lon, center.lat, center.lon);
+                if (distance <= searchRadius) {
+                    console.log(`반경 ${searchRadius}m 내에서 ${center.name}을 찾았습니다.`);
+                    return center.name;
+                }
+            }
+
             const GOOGLE_API_KEY = 'AIzaSyDmq6ArU2ueu7jrOjlBEFJBlF3C_CfrzWI';
             if (GOOGLE_API_KEY === '여기에_새로_발급받은_구글_API_키를_입력하세요') return "API 키 필요";
             const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lon}&key=${GOOGLE_API_KEY}&language=ko`;
