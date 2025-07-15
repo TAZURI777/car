@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="referrer" content="strict-origin-when-cross-origin">
-    <title>차량 운행일지 (최종 완성본)</title>
+    <title>차량 운행일지 (저장 로직 개선)</title>
     
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚗</text></svg>">
     
@@ -13,6 +13,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.5/xlsx.full.min.js"></script>
 
     <style>
+        /* 모든 CSS 스타일은 이전과 동일합니다. */
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; background-color: #f4f7f6; margin: 0; padding: 10px; }
         .container { width: 100%; max-width: 1600px; background-color: #ffffff; padding: 15px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); box-sizing: border-box; margin: 10px auto; }
         h1 { text-align: center; color: #333; margin-bottom: 20px; font-size: 24px; }
@@ -107,7 +108,6 @@
         const modalImage = document.getElementById('modal-image');
         const closeModal = document.querySelector('.close-modal');
 
-        // --- 1. 이벤트 리스너 설정 ---
         tableBody.addEventListener('click', handleTableClick);
         tableBody.addEventListener('change', handleFileChange);
         tableBody.addEventListener('input', handleCellInput);
@@ -119,7 +119,6 @@
         modal.onclick = (event) => { if (event.target === modal) { modal.style.display = 'none'; } };
         downloadExcelButton.addEventListener('click', downloadExcel);
 
-        // --- 2. 이벤트 핸들러 ---
         function handleTableClick(event) {
             const target = event.target;
             const row = target.closest('.log-row');
@@ -157,14 +156,13 @@
             if (target.isContentEditable) {
                 const currentRow = target.closest('.log-row');
                 if (target.classList.contains('mileage')) {
-                    updateDistance(currentRow);
+                    updateDistance(currentRow, true); // 주행거리 입력 시에만 저장 확인
                 } else {
-                    saveTableData();
+                    saveTableData(); // 다른 셀은 바로 저장
                 }
             }
         }
 
-        // --- 3. 핵심 로직 함수들 ---
         async function handleImage(file, type, row) {
             showLoader(true, true);
             try {
@@ -194,18 +192,35 @@
                 const mileageCell = row.querySelector(`.mileage.${type}-mileage`);
                 if (mileage) {
                     mileageCell.textContent = mileage;
+                    if (confirm(`주행거리 '${mileage}'를 확인했습니다.\n이 사진을 갤러리에 저장하시겠습니까?`)) {
+                        saveImageToGallery(compressedImageDataUrl, `운행기록_${mileage}.jpg`);
+                    }
                 } else {
                     alert('계기판의 주행거리를 인식하지 못했습니다. 직접 입력해주세요.');
                     mileageCell.textContent = '';
                 }
-                updateDistance(row);
+                updateDistance(row, true);
                 saveTableData();
             } catch (error) {
                 console.error('이미지 처리 중 오류 발생:', error);
                 alert(error.message);
+                if (confirm('OCR 처리 중 오류가 발생했습니다. 현재 사진을 갤러리에 저장하시겠습니까?')) {
+                    const photoCell = row.querySelector(`.photo-cell.${type}-photo-cell`);
+                    saveImageToGallery(photoCell.dataset.imageDataUrl, `운행기록_사진.jpg`);
+                }
             } finally {
                 showLoader(false);
             }
+        }
+        
+        function saveImageToGallery(dataUrl, filename) {
+            if (!dataUrl) return;
+            const link = document.createElement('a');
+            link.href = dataUrl;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
 
         async function updateTableFromExif(exifData, type, row) {
@@ -238,27 +253,33 @@
             }
         }
         
-        function updateDistance(row) {
+        /**
+         * ✅ 주행거리 계산 및 저장 확인 로직 수정
+         */
+        function updateDistance(row, showConfirm = false) {
             const startMileage = parseFloat(row.querySelector('.start-mileage').textContent.replace(/,/g, ''));
             const endMileage = parseFloat(row.querySelector('.end-mileage').textContent.replace(/,/g, ''));
             const distanceCell = row.querySelector('.distance');
-
+            
+            // 주행거리 계산은 항상 시도
             if (!isNaN(startMileage) && !isNaN(endMileage) && endMileage >= startMileage) {
                 distanceCell.textContent = Math.round(endMileage - startMileage).toLocaleString();
-                if (row.dataset.completed === 'false') {
-                    if (confirm('저장하고 완료하시겠습니까?')) {
-                        row.dataset.completed = 'true';
-                        row.classList.add('completed');
-                        row.querySelector('.toggle-btn').style.display = 'inline-block';
-                        if (row === tableBody.lastElementChild) {
-                            addNewRow();
-                            updateRowNumbers();
-                        }
-                        saveTableData();
-                    }
-                }
             } else {
                 distanceCell.textContent = '';
+            }
+
+            // 아직 완료되지 않은 행이고, 확인 창을 띄워야 할 때만 실행
+            if (showConfirm && row.dataset.completed === 'false') {
+                if (confirm('저장하고 완료하시겠습니까?')) {
+                    row.dataset.completed = 'true';
+                    row.classList.add('completed');
+                    row.querySelector('.toggle-btn').style.display = 'inline-block';
+                    if (row === tableBody.lastElementChild) {
+                        addNewRow();
+                        updateRowNumbers();
+                    }
+                    saveTableData();
+                }
             }
         }
         
@@ -336,7 +357,7 @@
                 saveTableData();
             }
         }
-
+        
         function saveTableData() {
             try {
                 const rows = document.querySelectorAll('#log-body .log-row');
@@ -366,7 +387,7 @@
                 localStorage.setItem('drivingLogData', JSON.stringify(dataToSave));
             } catch (e) {
                 console.error("데이터 저장 중 오류 발생:", e);
-                alert("데이터 저장에 실패했습니다. 저장 공간이 부족할 수 있습니다.");
+                alert("데이터 저장에 실패했습니다. 브라우저 저장 공간이 부족할 수 있습니다.");
             }
         }
 
@@ -437,17 +458,14 @@
                     img.onload = () => {
                         const canvas = document.createElement('canvas');
                         let { width, height } = img;
-
                         if (width > maxWidth) {
                             height = (maxWidth / width) * height;
                             width = maxWidth;
                         }
-
                         canvas.width = width;
                         canvas.height = height;
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0, width, height);
-                        
                         const dataUrl = canvas.toDataURL('image/jpeg', quality);
                         resolve(dataUrl);
                     };
