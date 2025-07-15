@@ -284,7 +284,7 @@
                 const photoCell = row.querySelector(`.photo-cell.${type}-photo-cell`);
                 photoCell.innerHTML = '';
                 const thumbnail = document.createElement('img');
-                thumbnail.src = compressedImageDataUrl;
+thumbnail.src = compressedImageDataUrl;
                 thumbnail.className = 'thumbnail';
                 photoCell.appendChild(thumbnail);
                 photoCell.dataset.filename = currentCropInfo.file.name;
@@ -342,11 +342,32 @@
             }
         }
         
+        // 주행거리 유효성 검사 로직 추가
         function updateDistance(row) {
-            const startMileage = parseFloat(row.querySelector('.start-mileage').textContent.replace(/,/g, ''));
-            const endMileage = parseFloat(row.querySelector('.end-mileage').textContent.replace(/,/g, ''));
+            const startMileageCell = row.querySelector('.start-mileage');
+            const endMileageCell = row.querySelector('.end-mileage');
             const distanceCell = row.querySelector('.distance');
-            if (!isNaN(startMileage) && !isNaN(endMileage) && endMileage >= startMileage) {
+
+            const startMileage = parseFloat(startMileageCell.textContent.replace(/,/g, ''));
+            const endMileage = parseFloat(endMileageCell.textContent.replace(/,/g, ''));
+
+            // 입력할 때마다 일단 배경색 초기화
+            startMileageCell.style.backgroundColor = '';
+            endMileageCell.style.backgroundColor = '';
+            
+            // 두 값 모두 유효한 숫자인 경우에만 계산 및 검사 진행
+            if (!isNaN(startMileage) && !isNaN(endMileage)) {
+                // 도착 주행거리가 출발보다 작은 경우
+                if (endMileage < startMileage) {
+                    alert('도착(km)의 주행거리는 출발(km)보다 크거나 같아야 합니다.');
+                    distanceCell.textContent = ''; // 주행거리 칸 비우기
+                    // 에러가 발생한 두 셀의 배경색을 변경하여 사용자에게 알림
+                    startMileageCell.style.backgroundColor = '#ffdddd';
+                    endMileageCell.style.backgroundColor = '#ffdddd';
+                    return; // 함수 종료
+                }
+
+                // 정상적인 경우, 주행거리를 계산하고 완료 여부 확인
                 distanceCell.textContent = Math.round(endMileage - startMileage).toLocaleString();
                 if (row.dataset.completed === 'false') {
                     const rowNum = row.querySelector('.row-number span').textContent;
@@ -362,6 +383,7 @@
                     }
                 }
             } else {
+                // 숫자 값이 하나라도 유효하지 않으면 주행거리 칸 비우기
                 distanceCell.textContent = '';
             }
         }
@@ -556,9 +578,7 @@
             });
         }
         
-        // OCR 인식 함수 - 가로/세로 촬영 모두 대응하도록 수정
         async function recognizeMileage(imageSource) {
-            // 이미지 흑백 전처리
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d', { willReadFrequently: true });
             const image = await new Promise((resolve, reject) => {
@@ -584,10 +604,9 @@
 
             const worker = await Tesseract.createWorker('eng');
             
-            // 숫자 추출을 위한 보조 함수
             const parseText = (text) => {
                 console.log("OCR 원본:", text);
-                const numbers = text.match(/\d{5,}/g); // 5자리 이상 숫자만 추출 (정확도 향상)
+                const numbers = text.match(/\d{5,}/g);
                 if (!numbers) return null;
                 numbers.sort((a, b) => parseInt(b, 10) - parseInt(a, 10));
                 console.log("추출된 숫자:", numbers[0]);
@@ -595,13 +614,11 @@
             };
 
             try {
-                // 1차 시도: 원본 방향 그대로 인식
                 console.log("1차 인식 시도 (원본 방향)");
                 let result = await worker.recognize(canvas);
                 let mileage = parseText(result.data.text);
                 if (mileage) return mileage;
 
-                // 2차 시도: 1차 실패 시 이미지를 90도 회전하여 재시도
                 console.log("1차 실패. 2차 인식 시도 (90도 회전)");
                 const rotatedCanvas = document.createElement('canvas');
                 const rCtx = rotatedCanvas.getContext('2d');
